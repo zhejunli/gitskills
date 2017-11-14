@@ -1,2 +1,2 @@
 This is a test file
-Added in dev branch
+Add a line and resolve conflict.
