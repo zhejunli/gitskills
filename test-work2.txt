@@ -1,0 +1,2946 @@
+Sept 22,2016
+Jennie PCIe v2016.07 hardware is ready. Dont need to reverse the bus bit. Can recognize the ar934x-nfc as mtd12. But when mount -t jffs2 /dev/mtdblock12 /mnt/nand, it complains "jffs2: Cowardly refusing to erase blocks on filesystem with no valid JFFS2 nodes". Use "mtd erase /dev/mtd12" and then mount successfully. Create a file on /mnt/nand and power cycle the unit that file survives the power cycle.
+
+Jun 2, 2016
+On a PWii which is normal CPU usage:
+[65278.610000] br-lan: port 1(eth0) entered forwarding state
+[65356.250000] ===MHX : interrupt driver failed to register, use poll driver
+[65356.250000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.260000] platform leds-gpio: Driver leds-gpio requests probe deferral
+[65356.270000] ==MHX(gpio_keys_polled_poll) checking buttons.	//Only one key
+
+
+[65356.270000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+static void gpio_keys_polled_queue_work(struct gpio_keys_button_dev *bdev)
+{
+	struct gpio_keys_platform_data *pdata = bdev->pdata;
+	unsigned long delay = msecs_to_jiffies(pdata->poll_interval);
+
+	if (delay >= HZ)
+		delay = round_jiffies_relative(delay);
+	printk(==MHX(%s) delay=%ld\n, __func__,delay);
+	schedule_delayed_work(&bdev->work, delay);
+}
+Delay is VIP2_AC_KEYS_POLL_INTERVAL set in machine file is 20 msec. It is printed as 2, which means the system tick is 10msec.
+
+
+[65356.290000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.290000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.310000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.310000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.330000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.330000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.350000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.350000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.370000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.370000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.390000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.390000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.410000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.410000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.430000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.430000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.450000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.450000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.470000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[65356.470000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[65356.490000] ==MHX(gpio_keys_polled_poll) checking buttons.
+
+On the BulletAC which has high CPU usage:
+root@UserDevice:~# insmod gpio-button-hotplug
+[  160.100000] ===MHX : interrupt driver failed to register, use poll driver
+[  160.130000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+root@UserDevice:~# [  160.150000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.160000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.170000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.170000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.200000] ==MHX(gpio_keys_polled_poll) checking buttons.	// 3 keys to pull
+[  160.210000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.220000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.220000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.250000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.260000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.270000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.270000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.300000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.310000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.320000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.320000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.350000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.360000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.370000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.370000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.400000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.410000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.420000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.420000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.450000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.460000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.470000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.470000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.500000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.510000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.520000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.520000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.550000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.560000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.570000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.570000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+[  160.600000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.610000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.620000] ==MHX(gpio_keys_polled_poll) checking buttons.
+[  160.620000] ==MHX(gpio_keys_polled_queue_work) delay=2.
+
+
+Jun 1, 2016
+Use oprofile and perf package of OWT. make menuconfig--->Gobal build settings--->Compile the kernel with profiling enabled. Then go to main menu--->Development--->oprofile. That’s all you need for oprofile.
+But for perf, go also to “Advanced configuration options (for developers)” and enable “Show broken platforms / packages“ and you need to turn on the libelf1 library under “Libraries“. But I couldn't find libelf1. I found "
+Symbol: PACKAGE_libelf1 [=PACKAGE_libelf1]                                                               x  
+  x Type  : unknown                                                                                          x  
+  x   Selected by: PACKAGE_perf [=n] && USE_GLIBC "
+That means perf depends on GLIBC however we use uClibc. So looks like perf is not usable.
+
+To use oprofile to profile kernel: scp build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux root@192.168.168.2://lib/.
+root@UserDevice:~# opcontrol --vmlinux=lib/vmlinux 
+[  435.310000] oprofile: using mips/74K performance monitoring.
+root@UserDevice:~# lsmod | grep prof
+oprofile               19410  1 
+root@UserDevice:~# opcontrol --start
+Using default event: INSTRUCTIONS:100000:0:1:1
+Using 2.6+ OProfile kernel interface.
+Reading module info.
+Using log file /var/lib/oprofile/samples/oprofiled.log
+Daemon started.
+Profiler running.
+
+May 31, 2016
+BulletAC board:
+        ath79_setup_ar934x_eth_cfg(AR934X_ETH_CFG_SW_ONLY_MODE); //All phys connect to GMAC1 internal switch
+
+        ath79_register_mdio(1, 0x0);
+
+        /* LAN */
+        ath79_init_mac(ath79_eth1_data.mac_addr, NULL, -1);
+
+        /* GMAC1 is connected to the internal switch */
+        ath79_eth1_data.phy_if_mode = PHY_INTERFACE_MODE_GMII;
+
+        ath79_register_eth(1);
+
+	// Remove the registration of GMAC0 otherwise AR934X_ETH_CFG_SW_ONLY_MODE doesn't work. Looks like it will override the AR934X_ETH_CFG_SW_ONLY_MODE and GMAC0 still connects to PHY4.
+        /* WAN */
+        //ath79_init_mac(ath79_eth0_data.mac_addr, NULL, -1);
+
+        /* GMAC0 is connected to the PHY4 of the internal switch 
+        ath79_switch_data.phy4_mii_en = 1;
+        ath79_switch_data.phy_poll_mask = BIT(4);
+        ath79_eth0_data.phy_if_mode = PHY_INTERFACE_MODE_MII;
+        ath79_eth0_data.phy_mask = BIT(4);
+        ath79_eth0_data.mii_bus_dev = &ath79_mdio1_device.dev;
+
+        ath79_register_eth(0);
+	*/
+Only one eth is found:
+[    1.180000] libphy: ag71xx_mdio: probed
+[    1.740000] ag71xx-mdio.1: Found an AR934X built-in switch
+[    2.770000] eth0: Atheros AG71xx at 0xba000000, irq 5, mode:GMII
+[    2.770000] i2c /dev entries driver
+[    2.890000] TCP: cubic registered
+
+root@UserDevice:~# ifconfig -a
+br-lan    Link encap:Ethernet  HWaddr 00:0F:92:02:DB:89  
+          inet addr:192.168.168.2  Bcast:192.168.168.255  Mask:255.255.255.0
+          inet6 addr: fda3:56a5:d157::1/60 Scope:Global
+          inet6 addr: fe80::20f:92ff:fe02:db89/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:5419 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:5231 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:432896 (422.7 KiB)  TX bytes:876745 (856.1 KiB)
+
+eth0      Link encap:Ethernet  HWaddr 00:0F:92:02:DB:89  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:5422 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:5235 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:508942 (497.0 KiB)  TX bytes:877193 (856.6 KiB)
+          Interrupt:5 
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+wlan0     Link encap:Ethernet  HWaddr 04:F0:21:1A:D6:2D  
+          inet6 addr: fe80::6f0:21ff:fe1a:d62d/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:4 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:480 (480.0 B)
+
+wwan0     Link encap:Ethernet  HWaddr 00:0F:92:FE:00:01  
+          BROADCAST NOARP MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+root@UserDevice:~# brctl show
+bridge name     bridge id               STP enabled     interfaces
+br-lan          7fff.000f9202db89       no              eth0
+                                                        wlan0
+Plug the cable to a LAN port:
+root@UserDevice:~# [   91.050000] eth0: link down
+[   91.050000] br-lan: port 1(eth0) entered disabled state
+[   96.060000] eth0: link up (1000Mbps/Full duplex)
+[   96.060000] br-lan: port 1(eth0) entered forwarding state
+
+Remove the cable and plug into the WAN port:
+root@UserDevice:~# [  210.140000] eth0: link down
+[  210.150000] br-lan: port 1(eth0) entered disabled state
+[  213.150000] eth0: link up (1000Mbps/Full duplex)
+[  213.150000] br-lan: port 1(eth0) entered forwarding state
+[  213.160000] br-lan: port 1(eth0) entered forwarding state
+[  215.160000] br-lan: port 1(eth0) entered forwarding state
+
+root@UserDevice:~# ping 192.168.[  219.060000] usb 1-1.1: USB disconnect, device number 10
+[  219.070000] cdc_ncm 1-1.1:1.0 wwan0: unregister 'cdc_ncm' usb-ehci-platform-1.1, Mobile Broadband)
+168.100
+PING 192.168.168.100 (192.168.168.100): 56 data bytes
+64 bytes from 192.168.168.100: seq=0 ttl=64 time=0.684 ms
+64 bytes from 192.168.168.100: seq=1 ttl=64 time=0.620 ms
+
+All 4+1=5 ports are tested working.
+
+May 6, 2016
+For Nicole the 2.4GHz frequency uses the fixed 2390MHz.
+
+May 5, 2016
+Change synthesizer lo_frequency on the fly:
+
+static int set_lo_freq(const char *val, const struct kernel_param *kp)
+{
+	int rv = param_set_uint(val, kp);
+
+        printk("===MHX(%s) value=%s. rv=%d\n", __func__, val, rv);
+
+	if (rv)
+		return rv;
+
+	return 0;
+}
+
+static struct kernel_param_ops lo_freq_param_ops = {
+	.set = set_lo_freq,
+	.get = param_get_uint,
+};
+
+module_param_cb(lo_frequency, &lo_freq_param_ops, &lo_frequency, 0644);
+MODULE_PARM_DESC(lo_frequency, "Synthesizer local frequency in MHz");
+
+root@UserDevice:~# cat sys/module/rffc5071/parameters/lo_frequency 
+3322
+root@UserDevice:~# echo 3300 > sys/module/rffc5071/parameters/lo_frequency 
+root@UserDevice:~# dmesg -c
+[  294.850000] ===MHX(set_lo_freq) value=3300
+[  294.850000] . rv=0
+root@UserDevice:~# 
+root@UserDevice:~# cat sys/module/rffc5071/parameters/lo_frequency 
+3300
+root@UserDevice:~# 
+
+set_lo_freq() is also called at the very beginning of insmod.
+
+Initialize the 900MHz test:
+
+killall keepalived
+mhx -gpio dir 18 0
+mhx -gpio dir 0 0
+echo 0 > sys/class/leds/MIXER_RESET/brightness
+echo 255 > sys/class/leds/PA_VCC_ON/brightness
+echo 3392 > sys/module/rffc5071/parameters/lo_frequency
+
+May 4, 2016
+Confirmed with Ping for Nicole:
+I2C_CLK = A54 = GPIO7
+I2C_DATA = A52 = GPIO8
+Synthesizer:
+SPI_CLK = GPIO18
+SPI_DOUT = GPIO0
+
+The GPIO18 and GPIO0 are initialized in uBoot according to PRODUCTMODE and PRODUCT. So in Nicole case, PRODUCTMODE=3 is newly added so that the GPIOs are not initialized properly. Use mhx utility to init those GPIOs and programming is ok.
+
+With ART, Freq=2412MHz,
+lo_frequency(MHz)	900MHz Center Frequency(MHz)		Theorical Center Frequency(MHz)		Bandwidth(MHz)
+3300				895.2					888					<10
+3310				900.4					898					20
+3320				908.2					908					20
+3330				918.3					918					20
+3340				925.2					928					20
+3350				930.5					938					<10
+
+WiFi driver with 900MHz channel works 2 Nicoles communicate:
+
+root@UserDevice:~# cat sys/kernel/debug/gpio 
+GPIOs 0-29, ath79:
+ gpio-7   (scl                 ) out hi
+ gpio-8   (sda                 ) in  hi
+ gpio-16  (Peripheral_RESET    ) out hi
+ gpio-20  (CPUstatus           ) out hi
+ gpio-22  (RESET               ) in  hi
+
+GPIOs 30-37, i2c/0-001f, pca9557, can sleep:
+ gpio-30  (MIXER_CS            ) out hi
+ gpio-31  (PA_VCC_ON           ) out hi			// PA of 900MHz. '1' is ON
+ gpio-32  (SA3                 ) out lo
+ gpio-33  (SA2                 ) out lo
+ gpio-34  (SA1                 ) out lo
+ gpio-35  (PD_MIXER            ) out hi
+ gpio-36  (MIXER_RESET         ) out lo			// PA of 2.4GHz. '1' is ON
+ gpio-37  (MIXER_ENABLE        ) out hi
+
+
+
+May 3, 2016
+base-files package is teaked for Nicole added PRODUCT and PRODUCTMODE. A lot more other packages need a tweak too. 
+2.4GHz PA can not be turned off by ART. But the 900MHz PA can be controlled by ART. 2.4GHz an 900MHZ are transmitted at different antennas.
+
+April 29, 2016
+On Nicole board.
+
+When with radio daughter board:
+MHX_PRODUCTMODE=3
+MHX_PRODUCT=pNicole
+root@UserDevice:~# cat sys/kernel/debug/gpio 
+GPIOs 0-29, ath79:
+ gpio-7   (scl                 ) out hi
+ gpio-8   (sda                 ) in  hi
+ gpio-16  (Peripheral_RESET    ) out hi
+ gpio-20  (CPUstatus           ) out hi
+ gpio-22  (RESET               ) in  hi
+
+GPIOs 30-37, i2c/0-001f, pca9557, can sleep:
+ gpio-30  (MIXER_CS            ) out hi
+ gpio-31  (PA_VCC_ON           ) out lo
+ gpio-32  (SA3                 ) out lo
+ gpio-33  (SA2                 ) out lo
+ gpio-34  (SA1                 ) out lo
+ gpio-35  (PD_MIXER            ) out hi
+ gpio-36  (MIXER_RESET         ) out hi
+ gpio-37  (MIXER_ENABLE        ) out hi
+root@UserDevice:~# i2cdetect -y 0
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:          -- -- -- -- -- -- -- -- -- -- -- -- -- 
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- UU 
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+40: -- -- -- -- -- -- -- -- UU -- -- -- -- -- -- -- 
+50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+70: -- UU -- -- -- -- -- --                         
+root@UserDevice:~# rmmod rffc5071
+root@UserDevice:~# insmod rffc5071 lo_frequency=2400 
+works flawlessly.
+
+Power down, remove the radio daughter board. Same F/W and UBoot params. And then power up.
+
+root@UserDevice:~# cat sys/kernel/debug/gpio 
+GPIOs 0-29, ath79:
+ gpio-7   (scl                 ) out hi
+ gpio-8   (sda                 ) in  hi
+ gpio-22  (RESET               ) in  hi
+root@UserDevice:~# i2cdetect -y 0
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:          -- -- -- -- -- -- -- -- -- -- -- -- -- 
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+40: -- -- -- -- -- -- -- -- UU -- -- -- -- -- -- -- 
+50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+70: -- UU -- -- -- -- -- --                         
+root@UserDevice:~# 
+
+This means, if the chip doesn't exist, the i2cdetect can not detect it even though it is registered by platform code.
+
+April 27, 2016
+root@VIP2_AC:~# cat /proc/mtd 
+dev:    size   erasesize  name
+mtd0: 00080000 00040000 "u-boot"
+mtd1: 00040000 00040000 "u-boot-env"
+mtd2: 00040000 00040000 "u-boot-env-bak"
+mtd3: 00200000 00040000 "kernel"
+mtd4: 018c0000 00040000 "rootfs"
+mtd5: 01400000 00040000 "rootfs_data"
+mtd6: 00400000 00040000 "mhs-data"
+mtd7: 00040000 00040000 "art"
+mtd8: 00200000 00040000 "kernel-bak"
+mtd9: 018c0000 00040000 "rootfs-bak"
+mtd10: 00480000 00040000 "NVM-zone"
+mtd11: 000c0000 00040000 "pro-zone"
+mtd12: 10000000 00020000 "ar934x-nfc"
+root@VIP2_AC:~# cat sys/devices/platform/ar934x-nfc/uevent 
+DRIVER=ar934x-nfc
+MODALIAS=platform:ar934x-nfc
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/size 
+524288
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/inflight 
+       0        0
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/uevent 
+MAJOR=31
+MINOR=12
+DEVNAME=mtdblock12
+DEVTYPE=disk
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/stat 
+       0        0        0        0        0        0        0        0        0        0        0
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/capability 
+10
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/dev
+31:12
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/name 
+ar934x-nfc
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/flags 
+0x400
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/writesize 
+2048
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/type 
+nand
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/size 
+268435456
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/subpagesize 
+512
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/ecc_strength 
+1
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/erasesize 
+131072
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/oobsize 
+64
+root@VIP2_AC:~# cat sys/class/block/mtdblock12/device/flags 
+0x400
+root@VIP2_AC:~# mkdir /tmp/nand
+root@VIP2_AC:~# mount -t jffs2 /dev/mtdblock12 /tmp/nand/
+[ 1993.220000] jffs2: notice: (1400) jffs2_build_xattr_subsystem: complete building xattr subsystem, 0 of xdatum (0 unchecked, 0 orphan) and 0 of xref (0 dead, 0 orphan) found.
+root@VIP2_AC:~# df -h
+Filesystem                Size      Used Available Use% Mounted on
+rootfs                   20.0M      1.0M     19.0M   5% /
+/dev/root                 4.8M      4.8M         0 100% /rom
+tmpfs                    61.7M     80.0K     61.6M   0% /tmp
+tmpfs                    61.7M     76.0K     61.6M   0% /tmp/root
+tmpfs                   512.0K         0    512.0K   0% /dev
+/dev/mtdblock5           20.0M      1.0M     19.0M   5% /overlay
+overlayfs:/overlay       20.0M      1.0M     19.0M   5% /
+/dev/mtdblock12         256.0M      5.6M    250.4M   2% /tmp/nand
+root@VIP2_AC:~# ls tmp/nand/ -al
+drwxr-xr-x    3 root     root             0 Dec 31  1969 .
+drwxrwxrwt   18 root     root           500 Apr 26 17:53 ..
+
+root@VIP2_AC:~# cat /proc/interrupts 
+           CPU0       
+  3:         29      MIPS  ehci_hcd:usb1
+  4:          0      MIPS  eth1
+  5:          5      MIPS  eth0
+  7:      10501      MIPS  timer
+ 11:        438      MISC  serial
+ 29:       8198      MISC  ar934x-nfc
+
+But write the mtdblock12 failed. Nothing written to it (all FF).
+
+
+April 26, 2016
+Sanki connected one pin of NAND flash to 2.5v.
+[    0.490000] ===MHX (vip2_ac_setup): registering NAND===
+[    0.490000] ===MHX(ar934x_nfc_setup): NAND Flash set up finished.
+[    0.500000] bio: create slab <bio-0> at 0
+[    0.510000] pca953x 0-0022: interrupt support not compiled in
+[    0.520000] i2c i2c-0: Not I2C compliant: can't read SCL
+[    0.520000] i2c i2c-0: Bus may be unreliable
+[    0.520000] i2c-gpio i2c-gpio.0: using pins 17 (SDA) and 16 (SCL, no clock stretching)
+[    0.520000] PCI host bridge to bus 0000:00
+[    0.520000] pci_bus 0000:00: root bus resource [mem 0x10000000-0x13ffffff]
+[    0.520000] pci_bus 0000:00: root bus resource [io  0x0000]
+[    0.520000] pci_bus 0000:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.520000] pci_bus 0000:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.520000] Switching to clocksource MIPS
+[    0.520000] NET: Registered protocol family 2
+[    0.520000] TCP established hash table entries: 1024 (order: 1, 8192 bytes)
+[    0.520000] TCP bind hash table entries: 1024 (order: 0, 4096 bytes)
+[    0.520000] TCP: Hash tables configured (established 1024 bind 1024)
+[    0.520000] TCP: reno registered
+[    0.520000] UDP hash table entries: 256 (order: 0, 4096 bytes)
+[    0.520000] UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+[    0.520000] NET: Registered protocol family 1
+[    0.520000] PCI: CLS 0 bytes, default 32
+[    0.530000] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.530000] jffs2: version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red Hat,.
+[    0.540000] msgmni has been set to 246
+[    0.540000] io scheduler noop registered
+[    0.540000] io scheduler deadline registered (default)
+[    0.540000] Serial: 8250/16550 driver, 1 ports, IRQ sharing disabled
+[    0.560000] serial8250.0: ttyS0 at MMIO 0x18020000 (irq = 11) is a 16550A
+[    0.990000] console [ttyS0] enabled
+[    0.990000] ath79-spi ath79-spi: master is unqueued, this is deprecated
+[    1.000000] m25p80 spi0.0: found s25fl512s, expected m25p80
+[    1.010000] Set to pure 4byte address mode
+[    1.010000] m25p80 spi0.0: s25fl512s (65536 Kbytes)
+[    1.010000] 11 cmdlinepart partitions found on MTD device spi0.0
+[    1.020000] Creating 11 MTD partitions on "spi0.0":
+[    1.030000] 0x000000000000-0x000000080000 : "u-boot"
+[    1.030000] 0x000000080000-0x0000000c0000 : "u-boot-env"
+[    1.040000] 0x0000000c0000-0x000000100000 : "u-boot-env-bak"
+[    1.050000] 0x000000100000-0x000000300000 : "kernel"
+[    1.050000] 0x000000300000-0x000001bc0000 : "rootfs"
+[    1.060000] 1 squashfs-split partitions found on MTD device rootfs
+[    1.070000] 0x0000007c0000-0x000001bc0000 : "rootfs_data"
+[    1.070000] 0x000001bc0000-0x000001fc0000 : "mhs-data"
+[    1.080000] 0x000001fc0000-0x000002000000 : "art"
+[    1.090000] 0x000002000000-0x000002200000 : "kernel-bak"
+[    1.090000] 0x000002200000-0x000003ac0000 : "rootfs-bak"
+[    1.100000] 0x000003ac0000-0x000003f40000 : "NVM-zone"
+[    1.110000] 0x000003f40000-0x000004000000 : "pro-zone"
+[    1.110000] ===MHX1.1(ar934x_nfc_probe) probing NFC.
+[    1.120000] ar934x-nfc ar934x-nfc: buf:a7940000 size:8
+[    1.120000] ===MHX1.2(ar934x_nfc_probe) probing NFC.
+[    1.130000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.130000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00009061 dma:000000cc ctrl:00
+[    1.140000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.150000] [id] 00000000: 08 08 08 08 08 08 08 08
+[    1.160000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.160000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00009061 dma:000000cc ctrl:00
+[    1.170000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.180000] [id] 00000000: 08 08 08 08 08 08 08 08
+[    1.180000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.190000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00009061 dma:000000cc ctrl:00
+[    1.200000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.200000] [id] 00000000: 08 08 08 08 08 08 08 08
+[    1.210000] No NAND device found
+[    1.210000] ar934x-nfc ar934x-nfc: nand_scan_ident failed, err:-19
+[    1.230000] libphy: ag71xx_mdio: probed
+[    1.790000] ag71xx-mdio.1: Found an AR934X built-in switch
+[    2.820000] eth0: Atheros AG71xx at 0xba000000, irq 5, mode:GMII
+[    3.370000] ag71xx ag71xx.0: connected to PHY at ag71xx-mdio.1:04 [uid=004dd042, driver=Generic PHY]
+[    3.380000] eth1: Atheros AG71xx at 0xb9000000, irq 4, mode:MII
+
+Conclusion: The H/W AR9344 has the data line bit[0..7] connected to flash chip data line bit[7..0]. Just reversed.
+
+Reverse the bits in a Byte, the pull-up on bit3 is still there, I got:
+[    0.280000] ar71xx: using random MAC address for eth1
+[    0.490000] ===MHX (vip2_ac_setup): registering NAND===
+[    0.490000] ===MHX(ar934x_nfc_setup): NAND Flash set up finished.
+[    0.500000] bio: create slab <bio-0> at 0
+[    0.510000] pca953x 0-0022: interrupt support not compiled in
+[    0.520000] i2c i2c-0: Not I2C compliant: can't read SCL
+[    0.520000] i2c i2c-0: Bus may be unreliable
+[    0.520000] i2c-gpio i2c-gpio.0: using pins 17 (SDA) and 16 (SCL, no clock stretching)
+[    0.520000] PCI host bridge to bus 0000:00
+[    0.520000] pci_bus 0000:00: root bus resource [mem 0x10000000-0x13ffffff]
+[    0.520000] pci_bus 0000:00: root bus resource [io  0x0000]
+[    0.520000] pci_bus 0000:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.520000] pci_bus 0000:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.520000] Switching to clocksource MIPS
+[    0.520000] NET: Registered protocol family 2
+[    0.520000] TCP established hash table entries: 1024 (order: 1, 8192 bytes)
+[    0.520000] TCP bind hash table entries: 1024 (order: 0, 4096 bytes)
+[    0.520000] TCP: Hash tables configured (established 1024 bind 1024)
+[    0.520000] TCP: reno registered
+[    0.520000] UDP hash table entries: 256 (order: 0, 4096 bytes)
+[    0.520000] UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+[    0.520000] NET: Registered protocol family 1
+[    0.520000] PCI: CLS 0 bytes, default 32
+[    0.530000] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.530000] jffs2: version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red Hat, Inc.
+[    0.540000] msgmni has been set to 246
+[    0.540000] io scheduler noop registered
+[    0.540000] io scheduler deadline registered (default)
+[    0.540000] Serial: 8250/16550 driver, 1 ports, IRQ sharing disabled
+[    0.560000] serial8250.0: ttyS0 at MMIO 0x18020000 (irq = 11) is a 16550A
+[    0.990000] console [ttyS0] enabled
+[    0.990000] ath79-spi ath79-spi: master is unqueued, this is deprecated
+[    1.000000] m25p80 spi0.0: found s25fl512s, expected m25p80
+[    1.010000] Set to pure 4byte address mode
+[    1.010000] m25p80 spi0.0: s25fl512s (65536 Kbytes)
+[    1.010000] 11 cmdlinepart partitions found on MTD device spi0.0
+[    1.020000] Creating 11 MTD partitions on "spi0.0":
+[    1.030000] 0x000000000000-0x000000080000 : "u-boot"
+[    1.030000] 0x000000080000-0x0000000c0000 : "u-boot-env"
+[    1.040000] 0x0000000c0000-0x000000100000 : "u-boot-env-bak"
+[    1.050000] 0x000000100000-0x000000300000 : "kernel"
+[    1.050000] 0x000000300000-0x000001bc0000 : "rootfs"
+[    1.060000] 1 squashfs-split partitions found on MTD device rootfs
+[    1.070000] 0x0000007c0000-0x000001bc0000 : "rootfs_data"
+[    1.070000] 0x000001bc0000-0x000001fc0000 : "mhs-data"
+[    1.080000] 0x000001fc0000-0x000002000000 : "art"
+[    1.090000] 0x000002000000-0x000002200000 : "kernel-bak"
+[    1.090000] 0x000002200000-0x000003ac0000 : "rootfs-bak"
+[    1.100000] 0x000003ac0000-0x000003f40000 : "NVM-zone"
+[    1.110000] 0x000003f40000-0x000004000000 : "pro-zone"
+[    1.110000] ===MHX1.1(ar934x_nfc_probe) probing NFC.
+[    1.120000] ar934x-nfc ar934x-nfc: buf:a7940000 size:8
+[    1.120000] ===MHX1.2(ar934x_nfc_probe) probing NFC.
+[    1.130000] ===MHX3.1(nand_scan_ident) bus width=0. chip options=0
+[    1.140000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.140000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00000961 dma:000000cc ctrl:00000810
+[    1.150000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.160000] [id] 00000000: a9 09 5b 80 09 5b 80 22
+[    1.160000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.170000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00000961 dma:000000cc ctrl:00000810
+[    1.180000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.180000] [id] 00000000: a9 09 5b 80 09 5b 80 22
+[    1.190000] ===MHX 2.1(nand_get_flash_type) Sent READID command 90. ===MHX(nand_get_flash_type)2.2 id_data[0]=1===MHX(nand_get_flash_type)2.2 id_data[1]=da===MHX(nand_get_flash_type)2.20
+[    1.220000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.230000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00000961 dma:000000cc ctrl:00000810
+[    1.240000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.240000] [id] 00000000: a9 09 5b 80 09 5b 80 22
+[    1.250000] NAND device: Manufacturer ID: 0x01, Chip ID: 0xda (AMD/Spansion NAND 256MiB 3,3V 8-bit), 256MiB, page size: 2048, OOB size: 64
+[    1.260000] ar934x-nfc ar934x-nfc: buf:a7940000 size:2112
+[    1.270000] Scanning device for bad blocks
+[    1.270000] ar934x-nfc ar934x-nfc: read, column=2048 page=0 len=64
+[    1.280000] ar934x-nfc ar934x-nfc: read a0:00000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.290000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.290000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.300000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.310000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.320000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.320000] Bad eraseblock 0 at 0x000000000000
+[    1.330000] ar934x-nfc ar934x-nfc: read, column=2048 page=64 len=64
+[    1.330000] ar934x-nfc ar934x-nfc: read a0:00400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.340000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.350000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.360000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.360000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.370000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.380000] Bad eraseblock 1 at 0x000000020000
+[    1.380000] ar934x-nfc ar934x-nfc: read, column=2048 page=128 len=64
+[    1.390000] ar934x-nfc ar934x-nfc: read a0:00800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.400000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.410000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.410000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.420000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.430000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.430000] Bad eraseblock 2 at 0x000000040000
+[    1.440000] ar934x-nfc ar934x-nfc: read, column=2048 page=192 len=64
+[    1.440000] ar934x-nfc ar934x-nfc: read a0:00c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.450000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.460000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.470000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.470000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.480000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.490000] Bad eraseblock 3 at 0x000000060000
+[    1.490000] ar934x-nfc ar934x-nfc: read, column=2048 page=256 len=64
+[    1.500000] ar934x-nfc ar934x-nfc: read a0:01000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.510000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.520000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.520000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.530000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.540000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.540000] Bad eraseblock 4 at 0x000000080000
+[    1.550000] ar934x-nfc ar934x-nfc: read, column=2048 page=320 len=64
+[    1.560000] ar934x-nfc ar934x-nfc: read a0:01400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.570000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.570000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.580000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.590000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.590000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.600000] Bad eraseblock 5 at 0x0000000a0000
+[    1.600000] ar934x-nfc ar934x-nfc: read, column=2048 page=384 len=64
+[    1.610000] ar934x-nfc ar934x-nfc: read a0:01800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.620000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.630000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.630000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.640000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.650000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.660000] Bad eraseblock 6 at 0x0000000c0000
+[    1.660000] ar934x-nfc ar934x-nfc: read, column=2048 page=448 len=64
+[    1.670000] ar934x-nfc ar934x-nfc: read a0:01c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.680000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.680000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.690000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.700000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.700000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.710000] Bad eraseblock 7 at 0x0000000e0000
+[    1.720000] ar934x-nfc ar934x-nfc: read, column=2048 page=512 len=64
+[    1.720000] ar934x-nfc ar934x-nfc: read a0:02000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.730000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.740000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.750000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.750000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.760000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.770000] Bad eraseblock 8 at 0x000000100000
+[    1.770000] ar934x-nfc ar934x-nfc: read, column=2048 page=576 len=64
+[    1.780000] ar934x-nfc ar934x-nfc: read a0:02400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.790000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.790000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.800000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.810000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.810000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.820000] Bad eraseblock 9 at 0x000000120000
+[    1.830000] ar934x-nfc ar934x-nfc: read, column=2048 page=640 len=64
+[    1.830000] ar934x-nfc ar934x-nfc: read a0:02800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.840000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.850000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.860000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.860000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.870000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.880000] Bad eraseblock 10 at 0x000000140000
+[    1.880000] ar934x-nfc ar934x-nfc: read, column=2048 page=704 len=64
+[    1.890000] ar934x-nfc ar934x-nfc: read a0:02c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.900000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.900000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.910000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.920000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.930000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.930000] Bad eraseblock 11 at 0x000000160000
+[    1.940000] ar934x-nfc ar934x-nfc: read, column=2048 page=768 len=64
+[    1.940000] ar934x-nfc ar934x-nfc: read a0:03000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.950000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.960000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.970000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.970000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.980000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    1.990000] Bad eraseblock 12 at 0x000000180000
+[    1.990000] ar934x-nfc ar934x-nfc: read, column=2048 page=832 len=64
+[    2.000000] ar934x-nfc ar934x-nfc: read a0:03400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.010000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.020000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.020000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.030000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.040000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.040000] Bad eraseblock 13 at 0x0000001a0000
+[    2.050000] ar934x-nfc ar934x-nfc: read, column=2048 page=896 len=64
+[    2.060000] ar934x-nfc ar934x-nfc: read a0:03800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.070000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.070000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.080000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.090000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.090000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.100000] Bad eraseblock 14 at 0x0000001c0000
+[    2.100000] ar934x-nfc ar934x-nfc: read, column=2048 page=960 len=64
+[    2.110000] ar934x-nfc ar934x-nfc: read a0:03c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.120000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.130000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.130000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.140000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.150000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.160000] Bad eraseblock 15 at 0x0000001e0000
+[    2.160000] ar934x-nfc ar934x-nfc: read, column=2048 page=1024 len=64
+[    2.170000] ar934x-nfc ar934x-nfc: read a0:04000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.180000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.180000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.190000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.200000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.200000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.210000] Bad eraseblock 16 at 0x000000200000
+[    2.220000] ar934x-nfc ar934x-nfc: read, column=2048 page=1088 len=64
+[    2.220000] ar934x-nfc ar934x-nfc: read a0:04400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.230000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.240000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.240000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.250000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.260000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.270000] Bad eraseblock 17 at 0x000000220000
+[    2.270000] ar934x-nfc ar934x-nfc: read, column=2048 page=1152 len=64
+[    2.280000] ar934x-nfc ar934x-nfc: read a0:04800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.290000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.290000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.300000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.310000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.310000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.320000] Bad eraseblock 18 at 0x000000240000
+[    2.330000] ar934x-nfc ar934x-nfc: read, column=2048 page=1216 len=64
+[    2.330000] ar934x-nfc ar934x-nfc: read a0:04c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.340000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.350000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.360000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.360000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.370000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.380000] Bad eraseblock 19 at 0x000000260000
+[    2.380000] ar934x-nfc ar934x-nfc: read, column=2048 page=1280 len=64
+[    2.390000] ar934x-nfc ar934x-nfc: read a0:05000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.400000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.400000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.410000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.420000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.430000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.430000] Bad eraseblock 20 at 0x000000280000
+[    2.440000] ar934x-nfc ar934x-nfc: read, column=2048 page=1344 len=64
+[    2.440000] ar934x-nfc ar934x-nfc: read a0:05400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.450000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.460000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.470000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.470000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.480000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.490000] Bad eraseblock 21 at 0x0000002a0000
+[    2.490000] ar934x-nfc ar934x-nfc: read, column=2048 page=1408 len=64
+[    2.500000] ar934x-nfc ar934x-nfc: read a0:05800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.510000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.520000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.520000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.530000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.540000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.540000] Bad eraseblock 22 at 0x0000002c0000
+[    2.550000] ar934x-nfc ar934x-nfc: read, column=2048 page=1472 len=64
+[    2.560000] ar934x-nfc ar934x-nfc: read a0:05c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.570000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.570000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.580000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.590000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.590000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.600000] Bad eraseblock 23 at 0x0000002e0000
+[    2.600000] ar934x-nfc ar934x-nfc: read, column=2048 page=1536 len=64
+[    2.610000] ar934x-nfc ar934x-nfc: read a0:06000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.620000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.630000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.630000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.640000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.650000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.660000] Bad eraseblock 24 at 0x000000300000
+[    2.660000] ar934x-nfc ar934x-nfc: read, column=2048 page=1600 len=64
+[    2.670000] ar934x-nfc ar934x-nfc: read a0:06400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.680000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.680000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.690000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.700000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.700000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.710000] Bad eraseblock 25 at 0x000000320000
+[    2.720000] ar934x-nfc ar934x-nfc: read, column=2048 page=1664 len=64
+[    2.720000] ar934x-nfc ar934x-nfc: read a0:06800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.730000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.740000] [data] 00000000: 08 08 08 38 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.750000] [data] 00000010: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.750000] [data] 00000020: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.760000] [data] 00000030: 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08 08
+[    2.770000] Bad eraseblock 26 at 0x000000340000
+
+Then remove the pull-up on the date line bit3:
+
+[    0.280000] ar71xx: using random MAC address for eth1
+[    0.490000] ===MHX (vip2_ac_setup): registering NAND===
+[    0.490000] ===MHX(ar934x_nfc_setup): NAND Flash set up finished.
+[    0.500000] bio: create slab <bio-0> at 0
+[    0.500000] i2c i2c-0: Not I2C compliant: can't read SCL
+[    0.500000] i2c i2c-0: Bus may be unreliable
+[    0.500000] i2c-gpio i2c-gpio.0: using pins 17 (SDA) and 16 (SCL, no clock stretching)
+[    0.500000] PCI host bridge to bus 0000:00
+[    0.500000] pci_bus 0000:00: root bus resource [mem 0x10000000-0x13ffffff]
+[    0.500000] pci_bus 0000:00: root bus resource [io  0x0000]
+[    0.500000] pci_bus 0000:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.500000] pci_bus 0000:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.500000] Switching to clocksource MIPS
+[    0.500000] NET: Registered protocol family 2
+[    0.500000] TCP established hash table entries: 1024 (order: 1, 8192 bytes)
+[    0.500000] TCP bind hash table entries: 1024 (order: 0, 4096 bytes)
+[    0.500000] TCP: Hash tables configured (established 1024 bind 1024)
+[    0.500000] TCP: reno registered
+[    0.500000] UDP hash table entries: 256 (order: 0, 4096 bytes)
+[    0.500000] UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+[    0.500000] NET: Registered protocol family 1
+[    0.500000] PCI: CLS 0 bytes, default 32
+[    0.510000] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.510000] jffs2: version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red Hat, Inc.
+[    0.520000] msgmni has been set to 246
+[    0.520000] io scheduler noop registered
+[    0.520000] io scheduler deadline registered (default)
+[    0.520000] Serial: 8250/16550 driver, 1 ports, IRQ sharing disabled
+[    0.540000] serial8250.0: ttyS0 at MMIO 0x18020000 (irq = 11) is a 16550A
+[    0.950000] console [ttyS0] enabled
+[    0.960000] ath79-spi ath79-spi: master is unqueued, this is deprecated
+[    0.970000] m25p80 spi0.0: found s25fl512s, expected m25p80
+[    0.970000] Set to pure 4byte address mode
+[    0.980000] m25p80 spi0.0: s25fl512s (65536 Kbytes)
+[    0.980000] 11 cmdlinepart partitions found on MTD device spi0.0
+[    0.990000] Creating 11 MTD partitions on "spi0.0":
+[    0.990000] 0x000000000000-0x000000080000 : "u-boot"
+[    1.000000] 0x000000080000-0x0000000c0000 : "u-boot-env"
+[    1.010000] 0x0000000c0000-0x000000100000 : "u-boot-env-bak"
+[    1.020000] 0x000000100000-0x000000300000 : "kernel"
+[    1.020000] 0x000000300000-0x000001bc0000 : "rootfs"
+[    1.030000] 1 squashfs-split partitions found on MTD device rootfs
+[    1.040000] 0x0000007c0000-0x000001bc0000 : "rootfs_data"
+[    1.040000] 0x000001bc0000-0x000001fc0000 : "mhs-data"
+[    1.050000] 0x000001fc0000-0x000002000000 : "art"
+[    1.060000] 0x000002000000-0x000002200000 : "kernel-bak"
+[    1.060000] 0x000002200000-0x000003ac0000 : "rootfs-bak"
+[    1.070000] 0x000003ac0000-0x000003f40000 : "NVM-zone"
+[    1.080000] 0x000003f40000-0x000004000000 : "pro-zone"
+[    1.080000] ===MHX1.1(ar934x_nfc_probe) probing NFC.
+[    1.090000] ar934x-nfc ar934x-nfc: buf:a793f000 size:8
+[    1.090000] ===MHX1.2(ar934x_nfc_probe) probing NFC.
+[    1.100000] ===MHX3.1(nand_scan_ident) bus width=0. chip options=0
+[    1.110000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.110000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00000961 dma:000000cc ctrl:00000810
+[    1.120000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.130000] [id] 00000000: a9 09 5b 80 09 5b 80 22
+[    1.130000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.140000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00000961 dma:000000cc ctrl:00000810
+[    1.150000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.150000] [id] 00000000: a9 09 5b 80 09 5b 80 22
+[    1.160000] ===MHX 2.1(nand_get_flash_type) Sent READID command 90. 
+===MHX(nand_get_flash_type)2.2 id_data[0]=1
+===MHX(nand_get_flash_type)2.2 id_data[1]=da
+===MHX(nand_get_flash_type)2.2 id_data[2]=90
+===MHX(nand_get_flash_type)2.2 id_data[3]=95
+===MHX(nand_get_flash_type)2.2 id_data[4]=44
+===MHX(nand_get_flash_type)2.2 id_data[5]=1
+===MHX(nand_get_flash_type)2.2 id_data[6]=da
+===MHX(nand_get_flash_type)2.2 id_data[7]=90
+[    1.190000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.200000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00000961 dma:000000cc ctrl:00000810
+[    1.210000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.210000] [id] 00000000: a9 09 5b 80 09 5b 80 22
+[    1.220000] NAND device: Manufacturer ID: 0x01, Chip ID: 0xda (AMD/Spansion NAND 256MiB 3,3V 8-bit), 256MiB, page size: 2048, OOB size: 64
+[    1.230000] ar934x-nfc ar934x-nfc: buf:a793f000 size:2112
+[    1.240000] Scanning device for bad blocks
+[    1.240000] ar934x-nfc ar934x-nfc: read, column=2048 page=0 len=64
+[    1.250000] ar934x-nfc ar934x-nfc: read a0:00000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.260000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.260000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.270000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.280000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.280000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.290000] Bad eraseblock 0 at 0x000000000000
+[    1.300000] ar934x-nfc ar934x-nfc: read, column=2048 page=64 len=64
+[    1.300000] ar934x-nfc ar934x-nfc: read a0:00400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.310000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.320000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.330000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.330000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.340000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.350000] Bad eraseblock 1 at 0x000000020000
+[    1.350000] ar934x-nfc ar934x-nfc: read, column=2048 page=128 len=64
+[    1.360000] ar934x-nfc ar934x-nfc: read a0:00800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.370000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.370000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.380000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.390000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.400000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.400000] Bad eraseblock 2 at 0x000000040000
+[    1.410000] ar934x-nfc ar934x-nfc: read, column=2048 page=192 len=64
+[    1.410000] ar934x-nfc ar934x-nfc: read a0:00c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.420000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.430000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.440000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.440000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.450000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.460000] Bad eraseblock 3 at 0x000000060000
+[    1.460000] ar934x-nfc ar934x-nfc: read, column=2048 page=256 len=64
+[    1.470000] ar934x-nfc ar934x-nfc: read a0:01000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.480000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.490000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.490000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.500000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.510000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.510000] Bad eraseblock 4 at 0x000000080000
+[    1.520000] ar934x-nfc ar934x-nfc: read, column=2048 page=320 len=64
+[    1.520000] ar934x-nfc ar934x-nfc: read a0:01400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.530000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.540000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.550000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.550000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.560000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.570000] Bad eraseblock 5 at 0x0000000a0000
+[    1.570000] ar934x-nfc ar934x-nfc: read, column=2048 page=384 len=64
+[    1.580000] ar934x-nfc ar934x-nfc: read a0:01800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.590000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.600000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.600000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.610000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.620000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.620000] Bad eraseblock 6 at 0x0000000c0000
+[    1.630000] ar934x-nfc ar934x-nfc: read, column=2048 page=448 len=64
+[    1.640000] ar934x-nfc ar934x-nfc: read a0:01c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.650000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.650000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.660000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.670000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.670000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.680000] Bad eraseblock 7 at 0x0000000e0000
+[    1.680000] ar934x-nfc ar934x-nfc: read, column=2048 page=512 len=64
+[    1.690000] ar934x-nfc ar934x-nfc: read a0:02000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.700000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.710000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.710000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.720000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.730000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.740000] Bad eraseblock 8 at 0x000000100000
+[    1.740000] ar934x-nfc ar934x-nfc: read, column=2048 page=576 len=64
+[    1.750000] ar934x-nfc ar934x-nfc: read a0:02400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.760000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.760000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.770000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.780000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.780000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.790000] Bad eraseblock 9 at 0x000000120000
+[    1.800000] ar934x-nfc ar934x-nfc: read, column=2048 page=640 len=64
+[    1.800000] ar934x-nfc ar934x-nfc: read a0:02800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.810000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.820000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.820000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.830000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.840000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.850000] Bad eraseblock 10 at 0x000000140000
+[    1.850000] ar934x-nfc ar934x-nfc: read, column=2048 page=704 len=64
+[    1.860000] ar934x-nfc ar934x-nfc: read a0:02c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.870000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.870000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.880000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.890000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.890000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.900000] Bad eraseblock 11 at 0x000000160000
+[    1.910000] ar934x-nfc ar934x-nfc: read, column=2048 page=768 len=64
+[    1.910000] ar934x-nfc ar934x-nfc: read a0:03000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.920000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.930000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.940000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.940000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.950000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.960000] Bad eraseblock 12 at 0x000000180000
+[    1.960000] ar934x-nfc ar934x-nfc: read, column=2048 page=832 len=64
+[    1.970000] ar934x-nfc ar934x-nfc: read a0:03400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    1.980000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.980000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    1.990000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.000000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.010000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.010000] Bad eraseblock 13 at 0x0000001a0000
+[    2.020000] ar934x-nfc ar934x-nfc: read, column=2048 page=896 len=64
+[    2.020000] ar934x-nfc ar934x-nfc: read a0:03800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.030000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.040000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.050000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.050000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.060000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.070000] Bad eraseblock 14 at 0x0000001c0000
+[    2.070000] ar934x-nfc ar934x-nfc: read, column=2048 page=960 len=64
+[    2.080000] ar934x-nfc ar934x-nfc: read a0:03c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.090000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.100000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.100000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.110000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.120000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.120000] Bad eraseblock 15 at 0x0000001e0000
+[    2.130000] ar934x-nfc ar934x-nfc: read, column=2048 page=1024 len=64
+[    2.140000] ar934x-nfc ar934x-nfc: read a0:04000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.150000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.150000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.160000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.170000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.170000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.180000] Bad eraseblock 16 at 0x000000200000
+[    2.180000] ar934x-nfc ar934x-nfc: read, column=2048 page=1088 len=64
+[    2.190000] ar934x-nfc ar934x-nfc: read a0:04400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.200000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.210000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.210000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.220000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.230000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.240000] Bad eraseblock 17 at 0x000000220000
+[    2.240000] ar934x-nfc ar934x-nfc: read, column=2048 page=1152 len=64
+[    2.250000] ar934x-nfc ar934x-nfc: read a0:04800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.260000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.260000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.270000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.280000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.280000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.290000] Bad eraseblock 18 at 0x000000240000
+[    2.300000] ar934x-nfc ar934x-nfc: read, column=2048 page=1216 len=64
+[    2.300000] ar934x-nfc ar934x-nfc: read a0:04c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.310000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.320000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.330000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.330000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.340000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.350000] Bad eraseblock 19 at 0x000000260000
+[    2.350000] ar934x-nfc ar934x-nfc: read, column=2048 page=1280 len=64
+[    2.360000] ar934x-nfc ar934x-nfc: read a0:05000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.370000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.370000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.380000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.390000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.400000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.400000] Bad eraseblock 20 at 0x000000280000
+[    2.410000] ar934x-nfc ar934x-nfc: read, column=2048 page=1344 len=64
+[    2.410000] ar934x-nfc ar934x-nfc: read a0:05400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.420000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.430000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.440000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.440000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.450000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.460000] Bad eraseblock 21 at 0x0000002a0000
+[    2.460000] ar934x-nfc ar934x-nfc: read, column=2048 page=1408 len=64
+[    2.470000] ar934x-nfc ar934x-nfc: read a0:05800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.480000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.480000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.490000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.500000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.510000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.510000] Bad eraseblock 22 at 0x0000002c0000
+[    2.520000] ar934x-nfc ar934x-nfc: read, column=2048 page=1472 len=64
+[    2.520000] ar934x-nfc ar934x-nfc: read a0:05c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.530000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.540000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.550000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.550000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.560000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.570000] Bad eraseblock 23 at 0x0000002e0000
+[    2.570000] ar934x-nfc ar934x-nfc: read, column=2048 page=1536 len=64
+[    2.580000] ar934x-nfc ar934x-nfc: read a0:06000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.590000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.600000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.600000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.610000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.620000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.620000] Bad eraseblock 24 at 0x000000300000
+[    2.630000] ar934x-nfc ar934x-nfc: read, column=2048 page=1600 len=64
+[    2.640000] ar934x-nfc ar934x-nfc: read a0:06400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.650000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.650000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.660000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.670000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.670000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.680000] Bad eraseblock 25 at 0x000000320000
+[    2.690000] ar934x-nfc ar934x-nfc: read, column=2048 page=1664 len=64
+[    2.690000] ar934x-nfc ar934x-nfc: read a0:06800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.700000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.710000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.710000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.720000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.730000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.740000] Bad eraseblock 26 at 0x000000340000
+[    2.740000] ar934x-nfc ar934x-nfc: read, column=2048 page=1728 len=64
+[    2.750000] ar934x-nfc ar934x-nfc: read a0:06c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.760000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.760000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.770000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.780000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.780000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.790000] Bad eraseblock 27 at 0x000000360000
+[    2.800000] ar934x-nfc ar934x-nfc: read, column=2048 page=1792 len=64
+[    2.800000] ar934x-nfc ar934x-nfc: read a0:07000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.810000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.820000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.830000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.830000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.840000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.850000] Bad eraseblock 28 at 0x000000380000
+[    2.850000] ar934x-nfc ar934x-nfc: read, column=2048 page=1856 len=64
+[    2.860000] ar934x-nfc ar934x-nfc: read a0:07400800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.870000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.870000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.880000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.890000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.900000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.900000] Bad eraseblock 29 at 0x0000003a0000
+[    2.910000] ar934x-nfc ar934x-nfc: read, column=2048 page=1920 len=64
+[    2.910000] ar934x-nfc ar934x-nfc: read a0:07800800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.920000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.930000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.940000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.940000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.950000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.960000] Bad eraseblock 30 at 0x0000003c0000
+[    2.960000] ar934x-nfc ar934x-nfc: read, column=2048 page=1984 len=64
+[    2.970000] ar934x-nfc ar934x-nfc: read a0:07c00800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    2.980000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    2.990000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    2.990000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    3.000000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    3.010000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    3.010000] Bad eraseblock 31 at 0x0000003e0000
+[    3.020000] ar934x-nfc ar934x-nfc: read, column=2048 page=2048 len=64
+[    3.030000] ar934x-nfc ar934x-nfc: read a0:08000800 a1:00000000 len:40 cmd:0030006a dma:000000cc ctrl:000c0b55
+[    3.040000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    3.040000] [data] 00000000: 00 00 00 30 00 00 00 00 00 00 00 00 00 00 00 00
+[    3.050000] [data] 00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    3.060000] [data] 00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    3.060000] [data] 00000030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[    3.070000] Bad eraseblock 32 at 0x000000400000
+[    3.070000] ar934x-nfc ar934x-nfc: read, column=2048 page=2112 len=64
+
+
+Apr. 25, 2016
+AR9344 NAND flash driver : build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/drivers/mtd/nand/ar934x_nfc.c
+TCA6424 P05=Cellular_ON
+
+[    0.080000] ar71xx: using random MAC address for eth0
+[    0.280000] ar71xx: using random MAC address for eth1
+[    0.490000] ===MHX (vip2_ac_setup): registering NAND===
+[    0.490000] ===MHX(ar934x_nfc_setup): NAND Flash set up finished.
+[    0.500000] bio: create slab <bio-0> at 0
+[    0.510000] pca953x 0-0022: interrupt support not compiled in
+[    0.520000] i2c i2c-0: Not I2C compliant: can't read SCL
+[    0.520000] i2c i2c-0: Bus may be unreliable
+[    0.520000] i2c-gpio i2c-gpio.0: using pins 17 (SDA) and 16 (SCL, no clock stretching)
+[    0.520000] PCI host bridge to bus 0000:00
+[    0.520000] pci_bus 0000:00: root bus resource [mem 0x10000000-0x13ffffff]
+[    0.520000] pci_bus 0000:00: root bus resource [io  0x0000]
+[    0.520000] pci_bus 0000:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.520000] pci_bus 0000:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.520000] Switching to clocksource MIPS
+[    0.520000] NET: Registered protocol family 2
+[    0.520000] TCP established hash table entries: 1024 (order: 1, 8192 bytes)
+[    0.520000] TCP bind hash table entries: 1024 (order: 0, 4096 bytes)
+[    0.520000] TCP: Hash tables configured (established 1024 bind 1024)
+[    0.520000] TCP: reno registered
+[    0.520000] UDP hash table entries: 256 (order: 0, 4096 bytes)
+[    0.520000] UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+[    0.520000] NET: Registered protocol family 1
+[    0.520000] PCI: CLS 0 bytes, default 32
+[    0.530000] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.530000] jffs2: version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red Hat,.
+[    0.540000] msgmni has been set to 246
+[    0.540000] io scheduler noop registered
+[    0.540000] io scheduler deadline registered (default)
+[    0.540000] Serial: 8250/16550 driver, 1 ports, IRQ sharing disabled
+[    0.560000] serial8250.0: ttyS0 at MMIO 0x18020000 (irq = 11) is a 16550A
+[    0.990000] console [ttyS0] enabled
+[    0.990000] ath79-spi ath79-spi: master is unqueued, this is deprecated
+[    1.000000] m25p80 spi0.0: found s25fl512s, expected m25p80
+[    1.010000] Set to pure 4byte address mode
+[    1.010000] m25p80 spi0.0: s25fl512s (65536 Kbytes)
+[    1.010000] 11 cmdlinepart partitions found on MTD device spi0.0
+[    1.020000] Creating 11 MTD partitions on "spi0.0":
+[    1.030000] 0x000000000000-0x000000080000 : "u-boot"
+[    1.030000] 0x000000080000-0x0000000c0000 : "u-boot-env"
+[    1.040000] 0x0000000c0000-0x000000100000 : "u-boot-env-bak"
+[    1.050000] 0x000000100000-0x000000300000 : "kernel"
+[    1.050000] 0x000000300000-0x000001bc0000 : "rootfs"
+[    1.060000] 1 squashfs-split partitions found on MTD device rootfs
+[    1.070000] 0x0000007c0000-0x000001bc0000 : "rootfs_data"
+[    1.070000] 0x000001bc0000-0x000001fc0000 : "mhs-data"
+[    1.080000] 0x000001fc0000-0x000002000000 : "art"
+[    1.090000] 0x000002000000-0x000002200000 : "kernel-bak"
+[    1.090000] 0x000002200000-0x000003ac0000 : "rootfs-bak"
+[    1.100000] 0x000003ac0000-0x000003f40000 : "NVM-zone"
+[    1.110000] 0x000003f40000-0x000004000000 : "pro-zone"
+[    1.110000] ===MHX1.1(ar934x_nfc_probe) probing NFC.
+[    1.120000] ar934x-nfc ar934x-nfc: buf:a7940000 size:8
+[    1.120000] ===MHX1.2(ar934x_nfc_probe) probing NFC.
+[    1.130000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.130000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00009061 dma:000000cc ctrl:00
+[    1.140000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.150000] [id] 00000000: 00 00 00 00 00 00 00 00
+[    1.160000] ===MHX(nand_get_flash_type)2.1 maf_id=0, dev_id=0
+[    1.160000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.170000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00009061 dma:000000cc ctrl:00
+[    1.180000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.180000] [id] 00000000: 00 00 00 00 00 00 00 00
+[    1.190000] ===MHX(nand_get_flash_type)2.2 maf_id=0, dev_id=0
+[    1.190000] ===MHX(nand_get_flash_type)2.3 id_data[0]=0, id_data[1]=0
+[    1.200000] ===MHX(nand_get_flash_type)2.4 
+[    1.200000] ar934x-nfc ar934x-nfc: readid, cmd:90
+[    1.210000] ar934x-nfc ar934x-nfc: read a0:ffff0000 a1:0000000f len:8 cmd:00009061 dma:000000cc ctrl:00
+[    1.220000] ar934x-nfc ar934x-nfc: got IRQ, status:00000010
+[    1.220000] [id] 00000000: 00 00 00 00 00 00 00 00
+[    1.230000] No NAND device found
+[    1.230000] ar934x-nfc ar934x-nfc: nand_scan_ident failed, err:-19
+[    1.250000] libphy: ag71xx_mdio: probed
+[    1.810000] ag71xx-mdio.1: Found an AR934X built-in switch
+[    2.840000] eth0: Atheros AG71xx at 0xba000000, irq 5, mode:GMII
+
+
+It returned in between:
+    printk("===MHX(%s)2.4 \n", __func__);
+
+	chip->onfi_version = 0;
+	if (!type->name || !type->pagesize) {
+		/* Check is chip is ONFI compliant */
+		if (nand_flash_detect_onfi(mtd, chip, &busw))
+			goto ident_done;
+	}
+
+	if (!type->name)
+		return ERR_PTR(-ENODEV);	// returned here!!!
+
+	if (!mtd->name)
+		mtd->name = type->name;
+
+	chip->chipsize = (uint64_t)type->chipsize << 20;
+    printk("===MHX(%s)2.5 size=%lld\n", __func__, chip->chipsize);
+
+
+Sept 22,2015
+PWii procd watchdog
+root@OpenWrt:/# ubus call system watchdog
+{
+        "status": "running",
+        "timeout": 30,
+        "frequency": 5
+}
+While there is no uci configuration available for these options you could change them in an rc script such as rc.local if you wish:
+
+ubus call system watchdog '{ "timeout": 60 }'   # change to 60s timeout
+ubus call system watchdog '{ "frequency": 1 }'   # change to 1s frequency
+To sop the service:
+
+ubus call system watchdog '{ "stop": true }'   # watchdog will cause a reset after it expires
+
+Sept 15,2015
+PWii(32MB) hangs up. Reset AR9331 doesn't work. Probe the flash CS/ is 7.5KHz positive pulse. Probe flash CLK is 2.1MHz clock. MOSI no data out. That means flash is dead.
+Try pX2(64MB) and a Mary board with 64MB flash. Corrupt the rootfs to make the 2 boards reboot constantly over 15 hours and no hang-up is seen.
+
+Aug 14, 2015
+About : Where the sysupgrade.tgz is stored?
+1. Modify the sbin/mh_sysupgrade and comment the "busybox reboot -f" so that don't reboot after the upgrade
+2. Upgrade with "Keep all configuration". Running rootfs is big and the new rootfs is smaller 1.5MB.
+Current flash layout is:
+[    0.940000] Creating 8 MTD partitions on "spi0.0":
+[    0.940000] 0x000000000000-0x000000080000 : "u-boot"
+[    0.950000] 0x000000080000-0x000000090000 : "u-boot-env"
+[    0.950000] 0x000000090000-0x0000000a0000 : "u-boot-env-bak"
+[    0.960000] 0x0000000a0000-0x0000002a0000 : "kernel"
+[    0.970000] 0x0000002a0000-0x000001bf0000 : "rootfs"
+[    0.970000] mtd: device 4 (rootfs) set to be root filesystem
+[    0.980000] 1 squashfs-split partitions found on MTD device rootfs
+[    0.980000] 0x000000ad0000-0x000001bf0000 : "rootfs_data"		// rootfs size 0x83_0000 big.
+[    0.990000] 0x000001bf0000-0x000001ff0000 : "mhs-data"
+[    1.000000] 0x000001ff0000-0x000002000000 : "art"
+[    1.000000] 0x0000000a0000-0x000001bf0000 : "firmware"
+
+3. When the whole upgrade processes finish (no reboot of course). Check:
+root@UserDevice:~# cat /proc/mtd 
+dev:    size   erasesize  name
+mtd0: 00080000 00010000 "u-boot"
+mtd1: 00010000 00010000 "u-boot-env"
+mtd2: 00010000 00010000 "u-boot-env-bak"
+mtd3: 00200000 00010000 "kernel"
+mtd4: 01950000 00010000 "rootfs"
+mtd5: 01120000 00010000 "rootfs_data"
+mtd6: 00400000 00010000 "mhs-data"
+mtd7: 00010000 00010000 "art"
+mtd8: 01b50000 00010000 "firmware"
+root@UserDevice:~# hexdump -C /dev/mtd5 // NOTE: if from a small rootfs to a bigger rootfs, the bigger (new) rootfs may exceed the current mtd4 boundary to overlap the mtd5.
+00000000  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+01120000
+
+root@UserDevice:~# 
+root@UserDevice:~# hexdump -C /dev/mtd4 -s 0x6d0000
+006d0000  8e 64 ce e3 94 95 5c 3e  5c f6 41 33 ee 33 d2 c2  |.d....\>\.A3.3..|
+006d0010  a2 db 71 9a f5 e8 39 62  66 50 5b 17 37 c6 ba c0  |..q...9bfP[.7...|
+006d0020  b5 8e b2 7a 3b 45 34 ee  3b f2 8c 08 64 47 95 98  |...z;E4.;...dG..|
+006d0030  44 72 32 ac 96 7a 60 d5  eb 30 34 e4 ce c2 1c e0  |Dr2..z`..04.....|
+006d0040  9c 0a de ff e1 a6 8c 44  b7 ee ee 7d a3 20 b9 19  |.......D...}. ..|
+006d0050  ae 27 eb 9d f7 d7 3f 4d  e2 54 75 c5 c3 47 aa dc  |.'....?M.Tu..G..|
+006d0060  18 dc 2a 8b 2b 77 13 5f  d3 d4 ce ee b1 d8 bd c5  |..*.+w._........|
+
+root@UserDevice:~# hexdump -C /dev/mtd4 -s 0x6dfe00
+006dfe00  ac 13 5a d8 88 74 80 66  f3 31 00 c8 77 c7 ab 7d  |..Z..t.f.1..w..}|
+006dfe10  e4 3b ba 14 dc 3b d2 30  69 7e cb 6e 42 39 20 6d  |.;...;.0i~.nB9 m|
+006dfe20  99 56 12 58 41 3d 6f 6d  7e 05 6d 6d b4 1c 3f df  |.V.XA=om~.mm..?.|
+006dfe30  47 00 77 d4 4a 7c 00 01  c8 0a e0 2d 00 00 2e c4  |G.w.J|.....-....|
+006dfe40  b4 92 3e 30 0d 8b 02 00  00 00 00 01 59 5a 06 f1  |..>0........YZ..|
+006dfe50  6d 00 00 00 00 00 e0 f8  6d 00 00 00 00 00 04 80  |m.......m.......|
+006dfe60  00 00 00 00 5e fe 6d 00  00 00 00 00 ff ff ff ff  |....^.m.........|
+006dfe70  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|		// Offset 0x6d_0000 is the last sector of rootfs data.
+*
+006e0000  19 85 20 03 00 00 00 0c  f0 60 dc 98 19 85 e0 01  |.. ......`......|		// JFFS2 is made from 0x6e_0000. The sysupgrade.tgz is stored on that.
+006e0010  00 00 00 36 5d 44 48 fe  00 00 00 01 00 00 00 00  |...6]DH.........|
+006e0020  00 00 00 02 00 00 00 00  0e 08 00 00 97 8f 0a 5b  |...............[|
+006e0030  31 ff 3d bc 73 79 73 75  70 67 72 61 64 65 2e 74  |1.=.sysupgrade.t|
+006e0040  67 7a ff ff 19 85 e0 02  00 00 10 44 ee 2d 30 6f  |gz.........D.-0o|
+006e0050  00 00 00 02 00 00 00 02  00 00 81 a4 00 00 00 00  |................|
+006e0060  00 00 82 02 55 cc c3 7d  55 cc c3 7e 55 cc c3 7e  |....U..}U..~U..~|
+006e0070  00 00 00 00 00 00 10 00  00 00 10 00 00 00 00 00  |................|
+006e0080  43 9f d3 cb ab dc c5 26  1f 8b 08 00 7d c3 cc 55  |C......&....}..U|
+006e0090  02 03 ec 3d 6b 73 e2 48  92 fd 55 fc 8a 0a 1c 71  |...=ks.H..U....q|
+006e00a0  74 df d9 20 89 97 db 17  1b b7 18 f0 8c 77 8c cd  |t.. .........w..|
+006e00b0  19 77 cf ee 4d 4c 10 42  14 46 db 42 d2 48 c2 34  |.w..ML.B.F.B.H.4|
+006e00c0  fb eb 2f b3 aa 24 95 9e  e0 9e 69 f7 ec 8c 99 5e  |../..$....i....^|
+
+root@UserDevice:~# hexdump -C /dev/mtd4 -s 0x6f0000
+006f0000  de ad c0 de ff ff ff ff  ff ff ff ff ff ff ff ff  |................|		// 0x6F_0000 is a sector to store EOF marker 0xdeadc0de.
+006f0010  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+00700000  42 d5 f0 7e ba a2 e8 53  56 7d 62 0a 86 8b 27 c5  |B..~...SV}b...'.|		// Current rootfs remaining data. No use.
+00700010  c1 88 e4 58 8d b2 52 e2  0c b6 3f ba 5d e6 98 2f  |...X..R...?.]../|
+00700020  5c 3d 0c 10 80 41 7e 55  88 27 25 6a 93 91 d7 75  |\=...A~U.'%j...u|
+00700030  d5 c6 14 76 3f cc 8d ec  33 5b 20 5a e8 dd 95 53  |...v?...3[ Z...S|
+00700040  fd 81 9f 02 b0 1c 75 60  15 c9 b2 75 2c a2 c5 b9  |......u`...u,...|
+00700050  ac 7c cc 00 79 14 e9 a9  81 fc c0 2d 7d 6e e7 c9  |.|..y......-}n..|
+
+4. Now reboot manually. This time the flash layout:
+[    0.940000] Creating 8 MTD partitions on "spi0.0":
+[    0.940000] 0x000000000000-0x000000080000 : "u-boot"
+[    0.950000] 0x000000080000-0x000000090000 : "u-boot-env"
+[    0.950000] 0x000000090000-0x0000000a0000 : "u-boot-env-bak"
+[    0.960000] 0x0000000a0000-0x0000002a0000 : "kernel"
+[    0.970000] 0x0000002a0000-0x000001bf0000 : "rootfs"			// Rootfs size 0x98_0000 - 0x2a_0000 = 0x6E_0000.
+[    0.970000] mtd: device 4 (rootfs) set to be root filesystem
+[    0.980000] 1 squashfs-split partitions found on MTD device rootfs
+[    0.980000] 0x000000980000-0x000001bf0000 : "rootfs_data"
+[    0.990000] 0x000001bf0000-0x000001ff0000 : "mhs-data"
+[    0.990000] 0x000001ff0000-0x000002000000 : "art"
+[    1.000000] 0x0000000a0000-0x000001bf0000 : "firmware"
+
+Press the [1], [2], [3] or [4] key and hit [enter] to select the debug level
+[   11.660000] eth0: link up (100Mbps/Full duplex)
+jffs2 is ready
+jffs2 is ready
+[   13.090000] jffs2_scan_eraseblock(): End of filesystem marker found at 0x10000
+[   13.100000] jffs2_build_filesystem(): unlocking the mtd device... done.
+[   13.110000] jffs2_build_filesystem(): erasing all blocks after the end marker... done.
+[   69.990000] jffs2: notice: (336) jffs2_build_xattr_subsystem: complete building xattr subsystem, 0 of xdatum (0 unchecked, 0 orphan) and 0 of xr.
+switching to overlay
+- config restore -
+[   71.640000] eth0: link down
+procd: - early -
+procd: - watchdog -
+procd: - ubus -
+procd: - init -
+
+Check the mtd devices:
+root@UserDevice:~# hexdump -C /dev/mtd4 -s 0x6dfe00
+006dfe00  ac 13 5a d8 88 74 80 66  f3 31 00 c8 77 c7 ab 7d  |..Z..t.f.1..w..}|
+006dfe10  e4 3b ba 14 dc 3b d2 30  69 7e cb 6e 42 39 20 6d  |.;...;.0i~.nB9 m|
+006dfe20  99 56 12 58 41 3d 6f 6d  7e 05 6d 6d b4 1c 3f df  |.V.XA=om~.mm..?.|
+006dfe30  47 00 77 d4 4a 7c 00 01  c8 0a e0 2d 00 00 2e c4  |G.w.J|.....-....|
+006dfe40  b4 92 3e 30 0d 8b 02 00  00 00 00 01 59 5a 06 f1  |..>0........YZ..|
+006dfe50  6d 00 00 00 00 00 e0 f8  6d 00 00 00 00 00 04 80  |m.......m.......|
+006dfe60  00 00 00 00 5e fe 6d 00  00 00 00 00 ff ff ff ff  |....^.m.........|
+006dfe70  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|		// Offset 0x6d_0000 is the last sector of rootfs data.
+*
+006e0000  19 85 20 03 00 00 00 0c  f0 60 dc 98 19 85 e0 01  |.. ......`......|		// In the fresh new start, 0x6e0000 is the start point of rootfs_data and the whole jffs2 fs.
+006e0010  00 00 00 36 5d 44 48 fe  00 00 00 01 00 00 00 00  |...6]DH.........|
+006e0020  00 00 00 02 00 00 00 00  0e 08 00 00 97 8f 0a 5b  |...............[|
+006e0030  31 ff 3d bc 73 79 73 75  70 67 72 61 64 65 2e 74  |1.=.sysupgrade.t|
+006e0040  67 7a ff ff 19 85 e0 02  00 00 10 44 ee 2d 30 6f  |gz.........D.-0o|
+006e0050  00 00 00 02 00 00 00 02  00 00 81 a4 00 00 00 00  |................|
+006e0060  00 00 82 02 55 cc c3 7d  55 cc c3 7e 55 cc c3 7e  |....U..}U..~U..~|
+006e0070  00 00 00 00 00 00 10 00  00 00 10 00 00 00 00 00  |................|
+006e0080  43 9f d3 cb ab dc c5 26  1f 8b 08 00 7d c3 cc 55  |C......&....}..U|
+006e0090  02 03 ec 3d 6b 73 e2 48  92 fd 55 fc 8a 0a 1c 71  |...=ks.H..U....q|
+006e00a0  74 df d9 20 89 97 db 17  1b b7 18 f0 8c 77 8c cd  |t.. .........w..|
+006e00b0  19 77 cf ee 4d 4c 10 42  14 46 db 42 d2 48 c2 34  |.w..ML.B.F.B.H.4|
+
+root@UserDevice:~# hexdump -C /dev/mtd4 -s 0x6f0000
+006f0000  19 85 20 03 00 00 00 0c  f0 60 dc 98 ff ff ff ff  |.. ......`......|		// 0x6F_0000 was a sector to store EOF marker 0xdeadc0de. But now it is the 2nd sector of JFFS2 fs.
+006f0010  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+00700000  19 85 20 03 00 00 00 0c  f0 60 dc 98 ff ff ff ff  |.. ......`......|
+00700010  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+
+root@UserDevice:~# hexdump -C /dev/mtd4 -s 0x700000
+00700000  19 85 20 03 00 00 00 0c  f0 60 dc 98 ff ff ff ff  |.. ......`......|		// All following sectors are made to JFFS2.
+00700010  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+00710000  19 85 20 03 00 00 00 0c  f0 60 dc 98 ff ff ff ff  |.. ......`......|
+00710010  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+00720000  19 85 20 03 00 00 00 0c  f0 60 dc 98 ff ff ff ff  |.. ......`......|
+00720010  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+
+
+
+Aug 12,2015
+procd: - preinit -
+Press the [f] key and hit [enter] to enter failsafe mode
+Press the [1], [2], [3] or [4] key and hit [enter] to select the debug level
+[   12.650000] eth0: link up (100Mbps/Full duplex)
+jffs2 is ready
+jffs2 is ready
+[   13.190000] jffs2_scan_eraseblock(): End of filesystem marker found at 0x10000
+[   13.200000] jffs2_build_filesystem(): unlocking the mtd device... done.
+[   13.200000] jffs2_build_filesystem(): erasing all blocks after the end marker... done.
+[   68.770000] jffs2: notice: (337) jffs2_build_xattr_subsystem: complete building xattr subsystem, 0 of xdatum (0 unchecked, 0 orphan) and 0 of xr.
+switching to overlay
+- config restore -
+"End of filesystem marker found" is printed in linux-3.10.36/fs/jffs2/scan.c when the driver sees 0xdeadc0de, which is the marker of end of jffs2 FS.
+
+1. mkdir -p /home/Jeff/project/ar9331_3_10/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/tmp
+/home/Jeff/project/ar9331_3_10/staging_dir/host/bin/mksquashfs4 /home/Jeff/project/ar9331_3_10/build_dir/target-mips_34kc_uClibc-0.9.33.2/root-ar71xx /home/Jeff/project/ar9331_3_10/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/root.squashfs -nopad -noappend -root-owned -comp xz -Xpreset 9 -Xe -Xlc 0 -Xlp 2 -Xpb 2  -b 256k -p '/dev d 755 0 0' -p '/dev/console c 600 0 0 5 1' -processors 1
+Result : /home/Jeff/project/ar9331_3_10/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/root.squashfs doesn't have 0xdeadc0de.
+
+2. padjffs2 tool will add the 0xdeadc0de mark as EOF to the SQUASHFS at the sector boundary. The mark is at the very beginning of a sector. the -p0x2a0000:0x1950000:::rootfs:/home/Jeff/project/ar9331_3_10/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/root.squashfs-64k file is like this: SQUASHFS + padded 0xFF to sector boundary + (eg.@0x6E_0000)0xDEADC0DE.
+
+Aug 7,2015
+/home/Jeff/project/pwii-rffc5071/target/linux/ar71xx/image/Makefile analysis:
+$(eval $(call SingleProfile,MicrohardMyLoader,64kraw,MHS_331,PWii,MHS_331,ttyATH0,115200,0x2000000))
+	|---> $(call MicrohardMkuImageLzma,$(2),$(3) $(4))	// 
+	|		|---> $(call MicrohardPatchKernelLzma,$(1),$(2),$(3),$(4))
+	|		|		|---> cp $(KDIR)/vmlinux$(4) $(KDIR_TMP)/vmlinux$(4)-$(1)
+	|		|		|---> $(call CompressLzma,$(KDIR_TMP)/vmlinux$(4)-$(1),$(KDIR_TMP)/vmlinux$(4)-$(1).bin.lzma,$(3))
+	|		|		\RET
+	|		|---> $(call MkuImage,lzma,$(5),$(KDIR_TMP)/vmlinux$(4)-$(1).bin.lzma,$(KDIR_TMP)/vmlinux$(4)-$(1).uImage)
+	|		\RET
+	|---> $(STAGING_DIR_HOST)/bin/mkmylofw ...
+	\RET(END)
+
+Aug 6, 2015
+
+VIP4G and IPn4Gii have 1.1.4 u-boot, which have a ubparams.c utility in them in uboot/src/tools/ dir, not a package. But PWii u-boot(package) doesn't have that tool.
+PWii. VIP4G and IPn4Gii : fw_envset/get tool is in package/xxx/uboot-envtools.
+
+July 27 2015
+Nicole board: there is a seperate I2C expander on the radio daughter board. Addresses of it is all "1" (address 0x1f). The RFFC5071 is behind this expander.
+
+June 26,2015
+Platform: JenniePCIe
+Symptom: In mach-vip2-ac.c, added 	ap91_pci_init(art + VIP2_AC_PCIE_CALDATA_OFFSET, tmpmac); to bring up the PCIe device. But, during bootup, "PCIe link is down" is show up in ar734x-pci. 
+Step: Keep the kernel+fs unchanged, but change the u-boot to origional WPJ344 1.1.4 u-boot. In the bootup, the "PCIe link is down" compliant is gone. Instead, it shows the pci PME#, BAR, irq information. After bootup ifconfig -a can see the wlan1 interface, /proc/interrupts shows the IRQ#40 for AR742X PCI, and iwinfo command shows 2 wlan interfaces wlan0 and wlan1.
+
+June 19,2015
+The reset button hotplug is generated by package/kernel/gpio-button-hotplug package.
+
+
+May 27, 2015
+Upgrade and keep existing configs: mtd jffs2write $CONF_TAR rootfs_data will be used to write the old config file ($CONF_TAR) to the rootfs_data partition(jffs2). This file is right after the suqashfs (rootfs) and in the very beginning of rootfs_data and has a marker of "deadc0de".
+In next bootup, kernel jffs2_scan_eraseblock() in fs/jffs2/scan.c will scan this marker and erase all blocks after it.
+The lib/preinit/80_mount_root will find this .tgz file in jffs2 fs(rootfs_data) and untar and apply these configs.
+
+The first reboot after an upgrade with "keep config files" is like this:
+procd: - watchdog -
+[    7.580000] usbcore: registered new interface driver usbfs
+[    7.590000] usbcore: registered new interface driver hub
+[    7.590000] usbcore: registered new device driver usb
+[    7.610000] ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+[    7.620000] ehci-platform: EHCI generic platform driver
+[    7.620000] ehci-platform ehci-platform: EHCI Host Controller
+[    7.630000] ehci-platform ehci-platform: new USB bus registered, assigned bus number 1
+[    7.640000] ehci-platform ehci-platform: irq 3, io mem 0x1b000000
+[    7.660000] ehci-platform ehci-platform: USB 2.0 started, EHCI 1.00
+[    7.670000] hub 1-0:1.0: USB hub found
+[    7.670000] hub 1-0:1.0: 1 port detected
+[    7.670000] ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+procd: - preinit -
+Press the [f] key and hit [enter] to enter failsafe mode
+Press the [1], [2], [3] or [4] key and hit [enter] to select the debug level
+jffs2 is ready
+jffs2 is ready
+[   12.390000] jffs2_scan_eraseblock(): End of filesystem marker found at 0x10000	// deadc0de marker is found
+[   12.400000] jffs2_build_filesystem(): unlocking the mtd device... done.
+[   12.400000] jffs2_build_filesystem(): erasing all blocks after the end marker... [   12.590000] eth0: link up (100Mbps/Full duplex)
+done.
+[   84.380000] jffs2: notice: (330) jffs2_build_xattr_subsystem: complete building xattr subsystem, 0 of xdatum (0 unchecked, 0 orphan) and 0 of xref (0 dead, 0 orphan) found.
+switching to overlay
+===MHX : checking sysupgrade.tgz	// in preinit/80_mount_root
+- Old config file is found -
+- config restore -
+[   84.680000] eth0: link down
+procd: - early -
+procd: - watchdog -
+procd: - ubus -
+procd: - init -
+
+(none) login: 
+UserDevice login: [   87.690000] NET: Registered protocol family 10
+
+
+May 14,2015
+
+How the /etc/config/network file is generated.
+In /etc/init.d/boot, uci_apply_defaults is called to execute all scripts in /etc/uci-defaults/ and then remove them. But they are still in the romfs. 
+
+April 23, 2015
+The ar9331/9344 system should follow BarrierBreaker branch after the study of Openwrt branches. As of today. AA still uses 3.3.8 kernel while BB uses 3.10.49 kernel while Trunk uses 3.18 kernel.
+
+Mar 12, 2015
+Issue:
+Change #define CONFIG_SYS_PLL_FREQ		CONFIG_PLL_566_450_225 can not actually change the PLL of CPU and DDR. When kernel boots up, the frequency is ALWAYS 560_450_225.
+
+Cause:
+In /arch/mips/ath79/clock.c, ar934x_clocks_init() will check frequencies by checking:
+        pll = __raw_readl(dpll_base + AR934X_SRIF_CPU_DPLL2_REG);
+        if (pll & AR934X_SRIF_DPLL2_LOCAL_PLL) {
+		read SRIF registers;
+	}
+	else{
+		read PLL control registers;
+	}
+The testing shows the bit30(AR934X_SRIF_DPLL2_LOCAL_PLL) is always 1 set by u-boot. That means the SRIF registers take effects.
+
+IN u-boot, that means this piece of code always run:
+srif_set:
+	/* See if we have to read the pll values from flash */
+	li	t7,	SRIF_PLL_CONFIG_VAL_F
+	lw	t8,	0(t7)
+	li	t7,	SRIF_PLL_MAGIC
+	beq	t7,	t8,	read_srif_from_flash
+
+	/* Use built in values, based on ref clock */
+	li	t5,	KSEG1ADDR(WASP_BOOTSTRAP_REG);
+	li	t6,	WASP_REF_CLK_25
+	lw	t7,	0(t5);
+	and	t6,	t7,	t6
+	beq	zero,	t6,	1f
+
+	/*		refdiv		nint		nfrac */
+	/* cpu freq = (40 MHz refclk/refdiv 8) * Nint */				// Hardcoded CPU SRIF PLL freq=40/8 * 112 = 560MHz
+	li	t4,	(CPU_DPLL1_REFDIV_SET(0x8) | CPU_DPLL1_NINT_SET(112) | \
+			 CPU_DPLL1_NFRAC_RESET);
+
+	/* ddr freq = (40 MHz refclk/refdiv 8) * Nint */
+	li	t5,	(DDR_DPLL1_REFDIV_SET(0x8) | DDR_DPLL1_NINT_SET(90) | \		// Hardcoded CPU SRIF PLL freq=40/8 * 90 = 450MHz
+			 DDR_DPLL1_NFRAC_RESET);
+	j	2f
+
+In cpu_pll_is_not_locked() and ddr_pll_is_not_locked() functions, the t4 and t5 are used as CPU and DDR SRIF registers. 
+
+
+Mar 5, 2015
+When CONFIG_CMD_TCA642X and CONFIG_TCA642X are defined in config file, the command :
+vip2ac> tca642x device
+Current device address: 0xff
+vip2ac> tca642x device 0x22
+Current device address: 0x22
+vip2ac> tca642x output 10 1				// Command implementation is in drivers/gpio/tca642x.c. tca642x_set_dir() ---> tca642x_reg_write() ---> i2c_read().
+===MHX in i2c_read. chip=34, addr=13, alen=1, len=1	// in drivers/i2c/i2c_core.c
+==========MHX. in soft_i2c_read: chip 22 addr 0D alen 1 buffer 87d17a40 len 1	// in ./drivers/i2c/soft_i2c.c
+===MHX in gpio_direction_input() 17			// soft_i2c_read() ---> send_start() ---> I2C_SDA() ---> gpio_direction_input(), which is defined in newly added ./drivers/gpio/ath79_gpio.c.
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_input() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_input() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_input() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_get_value() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_output() 17
+===MHX in gpio_direction_output() 16
+===MHX in gpio_direction_input() 17
+Could not read before writing
+Error talking to chip at 0x22
+
+Feb 26, 2015
+This VERY first print of U-Boot is in init_sequence-->display_banner(). 
+static int display_banner(void)
+{
+
+	printf("\n\n%s\n\n", version_string);
+	return 0;
+}
+
+version_string[] = U_BOOT_VERSION_STRING;
+
+#define U_BOOT_VERSION_STRING U_BOOT_VERSION " (" U_BOOT_DATE " - " \
+	U_BOOT_TIME ")" CONFIG_IDENT_STRING
+
+The U_BOOT_VERSION comes from the Makefile:
+
+define filechk_version.h
+        (echo \#define PLAIN_VERSION \"$(UBOOTRELEASE)\"; \
+        echo \#define U_BOOT_VERSION \"U-Boot \" PLAIN_VERSION; \
+        echo \#define CC_VERSION_STRING \"$$($(CC) --version | head -n 1)\"; \
+        echo \#define LD_VERSION_STRING \"$$($(LD) --version | head -n 1)\"; )
+endef
+
+This is a way to transfer a #define to code from Makefile.
+
+Feb 25, 2015
+In mach-vip2-ac.c, ath79_register_leds_gpio(-1, ARRAY_SIZE(vip2_ac_leds_gpio),vip2_ac_leds_gpio); registers a platform device "sys/devices/platform/led-gpio". ath79_register_gpio_keys_polled() registers a platform device "sys/devices/platform/gpio-keys-polled". 
+
+The real registration code is executed AFTER the vip2_ac_setup() function. So that, it is not possible to gpio_request_one() a GPIO that is in the expander.
+
+Actually the generic GPIO doesn't need to be requested in kernel code. This can be done in user space by "echo 42 > sys/class/gpio/export". The 42 is a GPIO# in I2C expander. You can echo to export additional any GPIO pins in the system. The result can be seen by "cat /sys/kernel/debug/gpio". After a GPIO is exported, you can control its direction by "echo out > sys/class/gpio/gpio42/direction" and its value too. Of course if the GPIO pin is set output, the AR9344 GPIO register should be set up properly too.
+
+Feb 24,2015
+#define VIP2_AC_KEYS_POLL_INTERVAL	200	/* msecs */ defines the polling frequency for key/button input. This 200ms is testified by the waveform on I2C_SCL and I2C_SDA very precise. The key/button is defined on the expander. The top -d1 command doesn't show this system overhead. Maybe this is a very light polling overhead.
+When I do root#dd if=/dev/urandom of=/10M.dat bs=1M count=10, this heavy SPI traffic didn't even affect the precsision of 200mS. This is amazing.
+
+Feb 5,2015
+The difference in PROCD system of ar93xx.
+1.	New : Syslog function is done by /sbin/logd(daemon) and /sbin/logread(service). These are 2 daemons. Source code is in ubox. Ubox package contains kmodloader(the commond insmod, rmmod, modinfo, modprobe and rmmod are all links to kmodloader), logd, logread,lsbloader, and validate_data.
+	Old : /sbin/syslog create a syslogd daemon that is busybox. 
+
+2.	New : Network is managed by netifd package. For the SUBSYSTEM=iface hotplug, the /sbin/hotplug-call is called directly by netifd instead of by /etc/hotplug.json. 
+
+3.	New : Hotplug is managed by procd. No hotplug2 daemon. Procd package contains /sbin/init, /sbin/askfirst, /sbin/reload_config, and /sbin/udevtrigger(udevtrigger will handle cold/hot plug). Procd handles watchdog too.
+	Old : Hotplug is managed by /sbin/hotplug2. 
+
+4.	New : The JFFS2 mount overlay, fopivot, switch2jffs, etc. functions are done in fstools package with C code.
+	Old : Done by scripts.
+
+5.	New : Many programs/daemons are based on ubus:
+		[Jeff@DENG0033 ar9331_3_10]$ find ./build_dir/ -name ubus.c
+		./build_dir/target-mips_34kc_uClibc-0.9.33.2/hostapd-wpad-mini/hostapd-2014-06-03/src/ap/ubus.c
+		./build_dir/target-mips_34kc_uClibc-0.9.33.2/netifd-2014-06-20/ubus.c
+		./build_dir/target-mips_34kc_uClibc-0.9.33.2/firewall-2014-04-14/ubus.c
+		./build_dir/target-mips_34kc_uClibc-0.9.33.2/uhttpd-2014-06-11/ubus.c
+		./build_dir/target-mips_34kc_uClibc-0.9.33.2/procd-2014-06-19/ubus.c
+		./build_dir/target-mips_34kc_uClibc-0.9.33.2/odhcpd-2014-06-18/src/ubus.c
+		./build_dir/target-mips_34kc_uClibc-0.9.33.2/ubus-2014-05-06/lua/ubus.c
+
+6.	New : JSON 
+		./usr/share/libubox/jshn.sh, ./usr/bin/jshn(binary) are provided by package/libs/libubox/
+		/usr/bin/jsonfilter is provided by package/utils/jsonfilter/.
+
+The bootargs on ar9344 and ar9331:
+Jan 26, 2015
+root@OpenWrt:~# cat /proc/cmdline 
+ board=VIP2_AC console=ttyS0,115200 rootfstype=squashfs,jffs2 noinitrd ethaddr=00:03:7F:09:0B:AD rootfstype=squashfs,jffs2 noinitrd
+
+ board=MHS_331 console=ttyATH0,115200 rootfstype=squashfs,jffs2 noinitrd mem=64M
+
+
+
+Jan 20, 2015
+Use GPIO0 as a PHY0 Link status and Link activity LED. GPIO0
+vip2ac> md b804006c 1
+b804006c: 00000002                               ....	// Disable JTAG
+vip2ac> md b8040000 1
+b8040000: 0003f31a                               ....	// GPIO0 as Output
+vip2ac> md b804002c 1
+b804002c: 00000029                               ...)	// 0d41(0x29) means LED_LINK[0] link indicator LED
+
+Put Jennie CPU board on a single RJ45 mother board(PHY0), and scope the JTAG TCK(GPIO0). When Ethernet cable is connected this pin is 0 (active). Pull off the cable this pin becomes 1(inactive). TFTPB a file from tftp server, the waveform on this pin is around 4Hz with 50% occupation ratio.
+
+Jan 5, 2015
+                       All MAC/PHY registers are accessed via the MII address and MII control registers of GMAC0
+                       only. GMAC1 MII address and control registers are not used. The details of the Ethernet
+                       MAC/PHY that are accessible through the MAC 0 MII address.
+
+
+Dec 31, 2014.
+On WPJ344 board:
+External GIGA switch AR8334 OUI is 0x4dd036:
+vip2ac> mii device eth0
+vip2ac> mii dump 0 2   
+2.     (004d)                 -- PHY ID 1 register --
+  (ffff:004d) 2.15- 0 =    77    OUI portion
+
+
+vip2ac> mii dump 0 2
+2.     (004d)                 -- PHY ID 1 register --
+  (ffff:004d) 2.15- 0 =    77    OUI portion
+
+
+vip2ac> mii dump 0 3
+3.     (d036)                 -- PHY ID 2 register --
+  (fc00:d000) 3.15-10 =    52    OUI portion
+  (03f0:0030) 3. 9- 4 =     3    manufacturer part number
+  (000f:0006) 3. 3- 0 =     6    manufacturer rev. number
+
+
+vip2ac> mii dump 0 3
+3.     (d036)                 -- PHY ID 2 register --
+  (fc00:d000) 3.15-10 =    52    OUI portion
+  (03f0:0030) 3. 9- 4 =     3    manufacturer part number
+  (000f:0006) 3. 3- 0 =     6    manufacturer rev. number
+
+
+Internal FE switch OUI is 0x4dd042
+vip2ac> mii device eth1
+vip2ac> mii dump 0 2   
+2.     (d042)                 -- PHY ID 1 register --
+  (ffff:d042) 2.15- 0 = 53314    OUI portion
+
+
+vip2ac> mii dump 0 2
+2.     (004d)                 -- PHY ID 1 register --
+  (ffff:004d) 2.15- 0 =    77    OUI portion
+
+
+vip2ac> mii dump 0 2
+2.     (004d)                 -- PHY ID 1 register --
+  (ffff:004d) 2.15- 0 =    77    OUI portion
+
+
+vip2ac> mii dump 0 3
+3.     (004d)                 -- PHY ID 2 register --
+  (fc00:0000) 3.15-10 =     0    OUI portion
+  (03f0:0040) 3. 9- 4 =     4    manufacturer part number
+  (000f:000d) 3. 3- 0 =    13    manufacturer rev. number
+
+
+vip2ac> mii dump 0 3
+3.     (d042)                 -- PHY ID 2 register --
+  (fc00:d000) 3.15-10 =    52    OUI portion
+  (03f0:0040) 3. 9- 4 =     4    manufacturer part number
+  (000f:0002) 3. 3- 0 =     2    manufacturer rev. number
+
+
+vip2ac> mii dump 0 3
+3.     (d042)                 -- PHY ID 2 register --
+  (fc00:d000) 3.15-10 =    52    OUI portion
+  (03f0:0040) 3. 9- 4 =     4    manufacturer part number
+  (000f:0002) 3. 3- 0 =     2    manufacturer rev. number
+
+
+vip2ac> mii dump 0 3
+3.     (d042)                 -- PHY ID 2 register --
+  (fc00:d000) 3.15-10 =    52    OUI portion
+  (03f0:0040) 3. 9- 4 =     4    manufacturer part number
+  (000f:0002) 3. 3- 0 =     2    manufacturer rev. number
+
+
+
+Nov 26, 2014
+WPJ344 board. The Eth port close to power jack is Port2 of switch chip and the other is Port3.
+In development PC to add a default gw for eth2(192.168.168.100) replying 169 network:
+sudo route add -net 192.168.169.0/24 gw 192.168.168.1
+
+
+Nov 21, 2014
+In Jishant's WPJ344 origional board, the print out is like:
+
+U-Boot 2014.07-rc2 (Nov 21 2014 - 11:01:59)
+
+U-boot Microhard VIP2AC
+
+DRAM:  Wasp 1.2. Bootstrap=00ac05fe
+Wasp DDR2 32bit init
+===MHX: 1.1
+===MHX: 1.2
+===MHX: 1.3
+===MHX: 1.4
+===MHX: 1.5
+===MHX: 1.6
+===MHX: 1.7
+MHX dbg: WMAC is out of reset.
+MHX dbg: wasp_gpio_config is done.
+MHX dbg: Found a valid feature bit in flash.val=3c780000	//Read value from #define CONFIG_SYS_WLANCAL 0x9fff1000. Is this a flash address?
+Setting 0xb8116290 to 0x3c782d0f
+MHX dbg: ath_set_tuning_caps is done.
+===MHX: initdram() has returned.
+===MHX: board_type = 0, ram_size=134217728
+128 MiB
+Top of RAM usable for U-Boot at: 88000000
+Reserving 242k for U-Boot at: 87fc0000
+Reserving 192k for malloc() at: 87f90000
+Reserving 28 Bytes for Board Info at: 87f8ffe4
+Reserving 128 Bytes for Global Data at: 87f8ff64
+Reserving 128k for boot params() at: 87f6ff64
+Stack Pointer at: 87f6ff48
+Now running in RAM - U-Boot at: 87fc0000
+FLASH:  Macronix MX25L64 (8 MB)
+Flash: 8 MiB
+spi_setup_slave: bus:0 cs:1
+MHX(spi_flash_probe) max_hz=2000000,spi_mode=3
+SF: Got idcodes
+00000000: 00 00 00 00 00                                     .....
+SF: Unsupported flash IDs: manuf 00, jedec 0000, ext_jedec 0000
+spi_free_slave: bus:0 cs:1
+*** Warning - spi_flash_probe() failed, using default environment
+
+Destroy Hash Table: 87ff0c74 table = 00000000
+Create Hash Table: N=89
+INSERT: table 87ff0c74, filled 1/89 rv 87fa01c0 ==> name="bootcmd" value="bootm 0x9f680000"
+INSERT: table 87ff0c74, filled 2/89 rv 87fa0468 ==> name="bootdelay" value="3"
+INSERT: table 87ff0c74, filled 3/89 rv 87fa01e8 ==> name="baudrate" value="115200"
+INSERT: table 87ff0c74, filled 4/89 rv 87fa05d0 ==> name="ethaddr" value="00:03:7F:09:0B:AD"
+INSERT: table 87ff0c74, filled 5/89 rv 87fa0530 ==> name="ipaddr" value="192.168.168.1"
+INSERT: table 87ff0c74, filled 6/89 rv 87fa06e8 ==> name="serverip" value="192.168.168.100"
+INSERT: table 87ff0c74, filled 7/89 rv 87fa0580 ==> name="VendorId" value="MICROHARD"
+INSERT: table 87ff0c74, filled 8/89 rv 87fa07c4 ==> name="MHX_PRODUCTNAME" value="VIP2AC"
+INSERT: table 87ff0c74, filled 9/89 rv 87fa0224 ==> name="CONSOLE_QUIET" value="2"
+INSERT: table 87ff0c74, filled 10/89 rv 87fa00f8 ==> name="MHX_SERIAL" value="1012000"
+INSERT: free(data = 87fa0010)
+INSERT: done
+Trying to env_relocate again...
+spi_setup_slave: bus:0 cs:1
+MHX(spi_flash_probe) max_hz=2000000,spi_mode=3
+SF: Got idcodes
+00000000: c2 20 17 c2 20                                     . .. 
+SF: Detected MX25L6405D with page size 256 Bytes, erase size 64 KiB, total 8 MiB
+*** Warning - bad CRC, using default environment
+
+Destroy Hash Table: 87ff0c74 table = 87fa00e0
+Create Hash Table: N=89
+INSERT: table 87ff0c74, filled 1/89 rv 87fa0158 ==> name="bootcmd" value="bootm 0x9f680000"
+INSERT: table 87ff0c74, filled 2/89 rv 87fa0400 ==> name="bootdelay" value="3"
+INSERT: table 87ff0c74, filled 3/89 rv 87fa0180 ==> name="baudrate" value="115200"
+INSERT: table 87ff0c74, filled 4/89 rv 87fa0568 ==> name="ethaddr" value="00:03:7F:09:0B:AD"
+INSERT: table 87ff0c74, filled 5/89 rv 87fa04c8 ==> name="ipaddr" value="192.168.168.1"
+INSERT: table 87ff0c74, filled 6/89 rv 87fa0680 ==> name="serverip" value="192.168.168.100"
+INSERT: table 87ff0c74, filled 7/89 rv 87fa0518 ==> name="VendorId" value="MICROHARD"
+INSERT: table 87ff0c74, filled 8/89 rv 87fa075c ==> name="MHX_PRODUCTNAME" value="VIP2AC"
+INSERT: table 87ff0c74, filled 9/89 rv 87fa01bc ==> name="CONSOLE_QUIET" value="2"
+INSERT: table 87ff0c74, filled 10/89 rv 87fa0090 ==> name="MHX_SERIAL" value="1012000"
+INSERT: free(data = 87fa0960)
+INSERT: done
+spi_free_slave: bus:0 cs:1
+In:    serial
+Out:   serial
+Err:   serial
+Initial value for argc=3
+Final value for argc=3
+Initial value for argc=3
+Final value for argc=3
+Initial value for argc=3
+Final value for argc=3
+SPI:   ready
+Net:   Atheros AR934x --> eth0
+eth0 MAC is: 00:03:7f:09:0b:ad
+Initial value for argc=3
+Final value for argc=3
+wasp reset mask: 00c03300
+WASP  ----> S17 PHY *
+ : cfg1 0x7 cfg2 0x7114
+eth0 connected to AR9344
+eth0 up
+eth0
+Warning: Your board does not use generic board. Please read
+doc/README.generic-board and take action. Boards not
+upgraded by the late 2014 may break or be removed.
+### main_loop entered: bootdelay=3
+
+### main_loop: bootcmd="bootm 0x9f680000"
+Hit any key to stop autoboot:  3 
+Please input passwd :
+Incorrect Password 
+
+Please input passwd :
+ 0 
+vip2ac> help
+?       - alias for 'help'
+base    - print or set address offset
+
+
+But with #3 board where the flash is changed to 25FL256SAIF, with EXACTLY the same generated bootloader:
+
+
+
+
+
+The bootstrap is 0xac057e, which means USB Host mode, and shouldn't matter. What matters is in src/board/wpj344/wpj344.c, ath_set_tuning_caps() function. In this function #define XTAL_ADDRESS 0x18116290 is set. We use 40MHz (bit4=1) XTAL because of 5G WLAN support.
+
+Sept 4, 2014
+Import AR9344 project system+BL:
+cvs import -m "Initial import for AR9344.Links are removed.Bootloader is included as a package." network/AR9344 initial start
+
+Aug 7,2014
+VIP2 platform proprietary packages:
+1. eurd: done
+2. ftpd: done
+3. mpci-led: no use
+4. mpci-utils: contains tip.c. no use so far.
+5. mrouted: done
+6. net-snmp: done
+7. rmqctl: done
+8. sdpClient: done
+9. sdpServer: done
+10. soip: done
+11. unpackfw: done
+12. zebra: log.c:185:5: internal compiler error: in expand_expr_real_1, at expr.c:8907 with 4.6.x Linaro compiler. Ok with 4.7.x Linaro. Done.
+13. libmserial:done
+
+Aug 6,2014
+Packages to be introduced in vip2_ac project (compared with arm-contex 3Gii)
+1. busybox: 960-mhx-ttyS0-USB0.patch
+2. carriermgt: done
+3. checksync: done
+4. datausemonitor
+5. eurd
+6. gpsd
+7. gpsr
+8. libmserial: done
+9. localmonitor
+10. mcmserver
+11. mh_gnokii
+12. mhx-adc
+13. mhxAttach
+14. mhx-bsp
+15. mhx-eth
+16. mhx-utils
+17. microhard-vpn
+18. microhard-vpn-mast
+19. msmscomd
+20. multiwan: local modification
+21. sdpClient
+22. sdpServer
+23. sersniff
+24. soip
+25. traffic-watchdog
+26. wget: private modifications
+27. xl2tpd. private patches
+28. libcli
+
+Jul 25, 2014
+Origional CompexWPJ244 uses MX25L64 ,ID is ManufacturerID=C2, MemoryType=20, MemoryDensity=17.
+For Spansion S25FL128S, 				  01		 20		   18
+
+Jul 4,2014
+WPJ344 uses ns16550 serial port driver in drivers/serial.
+#define CONFIG_SYS_NS16550
+#define CONFIG_SYS_NS16550_SERIAL
+#define CONFIG_SYS_NS16550_REG_SIZE     4
+#define CONFIG_SYS_NS16550_CLK          40000000
+#define CONFIG_SYS_NS16550_COM1         CKSEG1ADDR(CONFIG_SYS_UART_BASE)
+#define CONFIG_CONS_INDEX               1
+
+The very first console print is:
+U-Boot 2014.07-rc2 (Jul 04 2014 - 16:03:47)
+defined in display_options() that is defined in lib/display_options.c
+
+Jun 26, 2014
+Internal 5 port switch is connected to GMAC1 which is LAN (eth0). GMAC0 is WAN.
+
+Jun 20, 2014
+UBoot flash r/w:
+// ./include/spi.h
+struct spi_slave {
+	unsigned int bus;
+	unsigned int cs;
+	u8 op_mode_rx;
+	u8 op_mode_tx;
+	unsigned int wordlen;
+	unsigned int max_write_size;
+	void *memory_map;
+	u8 option;
+	u8 flags;
+};
+
+// ./include/spi_flash.h
+struct spi_flash {
+	struct spi_slave *spi;
+	const char *name;
+	u8 dual_flash;
+	u8 shift;
+
+	u32 size;
+	u32 page_size;
+	u32 sector_size;
+	u32 erase_size;
+#ifdef CONFIG_SPI_FLASH_BAR
+	u8 bank_read_cmd;
+	u8 bank_write_cmd;
+	u8 bank_curr;
+#endif
+	u8 poll_cmd;
+	u8 erase_cmd;
+	u8 read_cmd;
+	u8 write_cmd;
+	u8 dummy_byte;
+
+	void *memory_map;
+	int (*read)(struct spi_flash *flash, u32 offset, size_t len, void *buf);
+	int (*write)(struct spi_flash *flash, u32 offset, size_t len,
+			const void *buf);
+	int (*erase)(struct spi_flash *flash, u32 offset, size_t len);
+};
+
+sf probe 0:0 command--->do_spi_flash(common/cmd_sf.c)--->do_spi_flash_probe--->spi_flash_probe(drivers/mtd/spi/sf_probe.c)--->spi_flash_probe_slave--->spi_flash_cmd(drivers/mtd/spi/sf.c)--->spi_flash_cmd_read--->spi_flash_read_write--->spi_xfer(drivers/spi/ar7240_spi.c).
+
+On WPJ344 board flash is connected to bus0 and cs1:
+wpj344> sf probe 0:0
+spi_setup_slave: bus:0 cs:0
+SF: Got idcodes
+00000000: 00 00 00 00 00                                     .....
+SF: Unsupported flash IDs: manuf 00, jedec 0000, ext_jedec 0000
+spi_free_slave: bus:0 cs:0
+Failed to initialize SPI flash at 0:0
+Command failed, result=1wpj344> <INTERRUPT>
+wpj344> sf probe 0:1
+spi_setup_slave: bus:0 cs:1
+SF: Got idcodes
+00000000: c2 20 17 c2 20                                     . .. 
+SF: Detected MX25L6405D with page size 256 Bytes, erase size 64 KiB, total 8 MiB
+spi_free_slave: bus:0 cs:1
+
+
+Jun 11, 2014
+U-Boot 1.1.4 (Build from LSDK-9.5.3.16 at Aug  2 2013 - 15:29:05)
+
+U-Boot DB120
+Wasp 1.2
+
+DRAM:  128 MB
+Top of RAM usable for U-Boot at: 88000000
+Reserving 144k for U-Boot at: 87fd8000
+Reserving 192k for malloc() at: 87fa8000
+Reserving 44 Bytes for Board Info at: 87fa7fd4
+Reserving 36 Bytes for Global Data at: 87fa7fb0
+Reserving 128k for boot params() at: 87f87fb0
+Stack Pointer at: 87f87f98
+Now running in RAM - U-Boot at: 87fd8000
+Flash Manuf Id 0xc2, DeviceId0 0x20, DeviceId1 0x17
+Flash found: mx25l 8MB
+Flash:  8 MB
+Using default environment
+
+eth_set_enetaddr(num=0, addr=04:f0:21:0a:f1:6c)
+eth_set_enetaddr(num=0, addr=04:f0:21:0a:f1:6c)
+In:    serial
+Out:   serial
+Err:   serial
+Net:   ag934x_enet_initialize...
+ wasp  reset mask:c02200 
+WASP  ----> S17 PHY *
+athrs17_reg_init: complete
+: cfg1 0x80000000 cfg2 0x7114
+eth0: 04:f0:21:0a:f1:6c
+eth0 up
+eth0
+Setting 0xb8116290 to 0x38702d0f
+Hit any key to stop autoboot:  0 
+## Booting image at 9f680000 ...
+   Image Name:   MIPS OpenWrt Linux-3.3.8
+   Created:      2013-09-20   1:02:21 UTC
+   Image Type:   MIPS Linux Kernel Image (lzma compressed)
+   Data Size:    908416 Bytes = 887.1 kB
+   Load Address: 80060000
+   Entry Point:  80060000
+   Verifying Checksum at 0x9f680040 ...OK
+   Uncompressing Kernel Image ... OK
+No initrd
+## Transferring control to Linux (at address 80060000) ...
+## Giving linux memsize in bytes, 134217728
+
+Starting kernel ...
+
+[    0.000000] Linux version 3.3.8 (ttyaw@mesh) (gcc version 4.6.3 20120201 (prerelease) (Linaro GCC 4.6-2012.02) ) #190 Fri Sep 20 01:02:11 GMT 2013
+[    0.000000] bootconsole [early0] enabled
+[    0.000000] CPU revision is: 0001974c (MIPS 74Kc)
+[    0.000000] SoC: Atheros AR9344 rev 2
+[    0.000000] Clocks: CPU:560.000MHz, DDR:450.000MHz, AHB:225.000MHz, Ref:40.000MHz
+[    0.000000] Determined physical RAM map:
+[    0.000000]  memory: 08000000 @ 00000000 (usable)
+[    0.000000] Initrd not found or empty - disabling initrd
+[    0.000000] Zone PFN ranges:
+[    0.000000]   Normal   0x00000000 -> 0x00008000
+[    0.000000] Movable zone start PFN for each node
+[    0.000000] Early memory PFN ranges
+[    0.000000]     0: 0x00000000 -> 0x00008000
+[    0.000000] Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 32512
+[    0.000000] Kernel command line:  board=WPJ344 console=ttyS0,115200 mtdparts=spi0.0:256k(u-boot)ro,64k(u-boot-env)ro,6336k(rootfs),1408k(kernel),64k(nvram),64k(art)ro,7744k@0x50000(firmware) rootfstype=squad
+
+// NOTE: It is incomplete here. Complete one is:
+// root@OpenWrt:~# cat /proc/cmdline 
+// board=VIP2_AC console=ttyS0,115200 mtdparts=spi0.0:256k(u-boot)ro,64k(u-boot-env)ro,6336k(rootfs),1408k (kernel),64k(nvram),64k(art)ro,7744k@0x50000(firmware) rootfstype=squashfs,jffs2 noinitrd
+
+[    0.000000] PID hash table entries: 512 (order: -1, 2048 bytes)
+[    0.000000] Dentry cache hash table entries: 16384 (order: 4, 65536 bytes)
+[    0.000000] Inode-cache hash table entries: 8192 (order: 3, 32768 bytes)
+[    0.000000] Primary instruction cache 64kB, VIPT, 4-way, linesize 32 bytes.
+[    0.000000] Primary data cache 32kB, 4-way, VIPT, cache aliases, linesize 32 bytes
+[    0.000000] Writing ErrCtl register=00000000
+[    0.000000] Readback ErrCtl register=00000000
+[    0.000000] Memory: 126640k/131072k available (2099k kernel code, 4432k reserved, 387k data, 184k init, 0k highmem)
+[    0.000000] SLUB: Genslabs=9, HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] NR_IRQS:51
+[    0.000000] Calibrating delay loop... 278.93 BogoMIPS (lpj=1394688)
+[    0.070000] pid_max: default: 32768 minimum: 301
+[    0.070000] Mount-cache hash table entries: 512
+[    0.080000] NET: Registered protocol family 16
+[    0.080000] gpiochip_add: registered GPIOs 0 to 22 on device: ath79
+[    0.090000] MIPS: machine is Compex WPJ344
+[    0.110000] ar724x-pci ar724x-pci: PCIe link is down
+[    0.110000] registering PCI controller with io_map_base unset
+[    0.120000] bio: create slab <bio-0> at 0
+[    0.130000] PCI host bridge to bus 0000:00
+[    0.130000] pci_bus 0000:00: root bus resource [mem 0x10000000-0x13ffffff]
+[    0.140000] pci_bus 0000:00: root bus resource [io  0x0000]
+[    0.140000] Switching to clocksource MIPS
+[    0.150000] NET: Registered protocol family 2
+[    0.150000] IP route cache hash table entries: 1024 (order: 0, 4096 bytes)
+[    0.160000] TCP established hash table entries: 4096 (order: 3, 32768 bytes)
+[    0.170000] TCP bind hash table entries: 4096 (order: 2, 16384 bytes)
+[    0.170000] TCP: Hash tables configured (established 4096 bind 4096)
+[    0.180000] TCP reno registered
+[    0.180000] UDP hash table entries: 256 (order: 0, 4096 bytes)
+[    0.190000] UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+[    0.190000] NET: Registered protocol family 1
+[    0.210000] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.220000] JFFS2 version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red Hat, Inc.
+[    0.230000] msgmni has been set to 247
+[    0.230000] io scheduler noop registered
+[    0.240000] io scheduler deadline registered (default)
+[    0.240000] Serial: 8250/16550 driver, 1 ports, IRQ sharing disabled
+[    0.270000] serial8250.0: ttyS0 at MMIO 0x18020000 (irq = 11) is a 16550A
+[    0.270000] console [ttyS0] enabled, bootconsole disabled
+[    0.270000] console [ttyS0] enabled, bootconsole disabled
+[    0.290000] m25p80 spi0.0: found mx25l6405d, expected m25p80
+[    0.290000] m25p80 spi0.0: mx25l6405d (8192 Kbytes)
+[    0.300000] 7 cmdlinepart partitions found on MTD device spi0.0
+[    0.310000] Creating 7 MTD partitions on "spi0.0":
+[    0.310000] 0x000000000000-0x000000040000 : "u-boot"
+[    0.320000] 0x000000040000-0x000000050000 : "u-boot-env"
+[    0.320000] 0x000000050000-0x000000680000 : "rootfs"
+[    0.330000] mtd: partition "rootfs" set to be root filesystem
+[    0.340000] mtd: partition "rootfs_data" created automatically, ofs=440000, len=240000 
+[    0.340000] 0x000000440000-0x000000680000 : "rootfs_data"
+[    0.350000] 0x000000680000-0x0000007e0000 : "kernel"
+[    0.360000] 0x0000007e0000-0x0000007f0000 : "nvram"
+[    0.360000] 0x0000007f0000-0x000000800000 : "art"
+[    0.370000] 0x000000050000-0x0000007e0000 : "firmware"
+[    0.400000] ag71xx_mdio: probed
+[    0.520000] ag71xx_mdio: probed
+[    0.530000] TCP cubic registered
+[    0.530000] NET: Registered protocol family 17
+[    0.540000] 8021q: 802.1Q VLAN Support v1.8
+[    0.540000] VFS: Mounted root (squashfs filesystem) readonly on device 31:2.
+[    0.550000] Freeing unused kernel memory: 184k freed
+- preinit -
+Press the [f] key and hit [enter] to enter failsafe mode
+- regular preinit -
+[    5.580000] JFFS2 notice: (484) jffs2_build_xattr_subsystem: complete building xattr subsystem, 1 of xdatum (0 unchecked, 0 orphan) and 11 of xref (0 dead, 2 orphan) found.
+switching to jffs2
+- init -
+
+Please press Enter to activate this console. [    7.440000] ATHR_GMAC: Length per segment 1536
+[    7.440000] ATHR_GMAC: fifo cfg 3 01f00140
+[    7.450000] mac:0 Registering S17....
+[    7.450000] ATHR_GMAC: RX TASKLET - Pkts per Intr:100
+[    7.460000] ATHR_GMAC: Mac address for unit 0: 04:f0:21:0a:f1:6c
+[    8.010000] ATHR_GMAC: Max segments per packet :   1
+[    8.020000] ATHR_GMAC: Max tx descriptor count :   128
+[    8.020000] ATHR_GMAC: Max rx descriptor count :   128
+[    8.030000] ATHR_GMAC: Mac capability flags    :   2381
+[    8.180000] usbcore: registered new interface driver usbfs
+[    8.180000] usbcore: registered new interface driver hub
+[    8.190000] usbcore: registered new device driver usb
+[    8.220000] PPP generic driver version 2.4.2
+[    8.250000] PPP MPPE Compression module registered
+[    8.340000] L2TP core driver, V2.0
+[    8.350000] L2TP netlink interface
+[    8.370000] GRE over IPv4 demultiplexor driver
+[    8.390000] GRE over IPv4 tunneling driver
+[    8.480000] ip_tables: (C) 2000-2006 Netfilter Core Team
+[    8.720000] NET: Registered protocol family 24
+[    8.740000] nf_conntrack version 0.5.0 (1981 buckets, 7924 max)
+[    8.910000] PPPoL2TP kernel driver, V2.0
+[    8.940000] PPTP driver version 0.8.5
+[    9.240000] xt_time: kernel timezone is -0000
+[    9.500000] adf: module license 'Proprietary' taints kernel.
+[    9.510000] Disabling lock debugging due to kernel taint
+[    9.810000] ath_hal: 0.9.17.1 (AR5416, AR9380, REGOPS_FUNC, WRITE_EEPROM, 11D)
+[    9.840000] ath_rate_atheros: Copyright (c) 2001-2005 Atheros Communications, Inc, All Rights Reserved
+[    9.860000] ath_spectral: Version 2.0.0
+[    9.860000] Copyright (c) 2005-2009 Atheros Communications, Inc. All Rights Reserved
+[    9.870000] SPECTRAL module built on Sep 20 2013 00:56:10
+[    9.890000] ath_dfs: Version 2.0.0
+[    9.890000] Copyright (c) 2005-2006 Atheros Communications, Inc. All Rights Reserved
+[   10.070000] ath_dev: Copyright (c) 2001-2007 Atheros Communications, Inc, All Rights Reserved
+[   11.300000] ath_ahb: 10.1.436 (Atheros/multi-bss)
+[   11.310000] __ath_attach: Set global_scn[0]
+[   11.310000] ACBKMinfree = 48
+[   11.320000] ACBEMinfree = 32
+[   11.320000] ACVIMinfree = 16
+[   11.320000] ACVOMinfree = 0
+[   11.320000] CABMinfree = 48
+[   11.330000] UAPSDMinfree = 0
+[   11.340000] Enterprise mode: 0x00000000
+[   11.340000] Restoring Cal data from Flash
+[   11.350000] SPECTRAL : get_capability not registered
+[   11.360000] HAL_CAP_PHYDIAG : Capable
+[   11.360000] SPECTRAL : Need to fix the capablity check for RADAR (spectral_attach : 226)
+[   11.370000] SPECTRAL : get_capability not registered
+[   11.370000] HAL_CAP_RADAR   : Capable
+[   11.380000] SPECTRAL : Need to fix the capablity check for SPECTRAL
+[   11.380000]  (spectral_attach : 231)
+[   11.390000] SPECTRAL : get_capability not registered
+[   11.390000] HAL_CAP_SPECTRAL_SCAN : Capable
+[   11.400000] SPECTRAL : get_tsf64 not registered
+[   11.400000] spectral_init_netlink 52 NULL SKB
+[   11.410000] SPECTRAL : No ADVANCED SPECTRAL SUPPORT
+[   11.410000] SPECTRAL : module attached
+[   11.420000] Green-AP : Green-AP : Attached
+[   11.420000] 
+[   11.420000] ath_get_caps[5980] rx chainmask mismatch actual 3 sc_chainmak 0
+[   11.430000] ath_get_caps[5955] tx chainmask mismatch actual 3 sc_chainmak 0
+[   11.440000] ath_attach_dfs[11963] dfsdomain 0
+[   11.450000] SPECTRAL : module already attached
+[   11.460000] ath_tx_paprd_init sc 872c8000 PAPRD Enabled
+[   11.470000] wifi0: Atheros 9340: mem=0xb8100000, irq=47
+[   11.470000] ath_pci: 10.1.436 (Atheros/multi-bss)
+[   15.500000] athr_gmac_ring_alloc Allocated 2048 at 0x864f9000
+[   15.500000] athr_gmac_ring_alloc Allocated 2048 at 0x864f9800
+[   15.810000] WASP  ----> S17 PHY *
+[   15.810000] To set s17 LOOKUP_CTRL_REG registers, flag 0 
+[   15.820000] To set s17 LOOKUP_CTRL_REG registers, flag 0 
+[   15.850000] athrs17_reg_init:done
+[   15.860000] Setting Drop CRC Errors, Pause Frames and Length Error frames 
+[   15.860000] Setting PHY...
+[   16.870000] Phy setup Complete
+[   16.870000] To set s17 LOOKUP_CTRL_REG registers, flag 1 
+[   16.880000] To set s17 LOOKUP_CTRL_REG registers, flag 1 
+[   16.890000] device eth0.1 entered promiscuous mode
+[   16.900000] device eth0 entered promiscuous mode
+[   19.870000] wlan_vap_create : enter. devhandle=0x87380380, opmode=IEEE80211_M_HOSTAP, flags=0x1
+[   19.880000] wlan_vap_create : exit. devhandle=0x87380380, opmode=IEEE80211_M_HOSTAP, flags=0x1.
+[   19.890000] VAP device ath0 created 
+[   19.980000]  
+[   19.980000]  DES SSID SET=MimoSeries 
+[   20.160000] Invoking ACS module for Best channel selection 
+[   20.160000] SPECTRAL : Legacy (Non-11AC)
+[   20.170000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2412)
+[   20.170000] Enabled spectral scan on channel 2412
+[   20.180000] SPECTRAL : Legacy (Non-11AC)
+[   20.180000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2412)
+[   20.190000] Spectral scan is already ACTIVE on channel 2412
+[   20.200000] SPECTRAL : Legacy (Non-11AC)
+[   20.210000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2412)
+[   20.210000] Enabled spectral scan on channel 2412
+[   20.430000] SPECTRAL : Legacy (Non-11AC)
+[   20.430000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2417)
+[   20.440000] Spectral scan is already ACTIVE on channel 2417
+[   20.650000] SPECTRAL : Legacy (Non-11AC)
+[   20.650000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2422)
+[   20.660000] Spectral scan is already ACTIVE on channel 2422
+[   20.870000] SPECTRAL : Legacy (Non-11AC)
+[   20.870000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2427)
+[   20.880000] Spectral scan is already ACTIVE on channel 2427
+[   21.000000] device ath0 entered promiscuous mode
+[   21.010000] br-lan: port 2(ath0) entered forwarding state
+[   21.010000] br-lan: port 2(ath0) entered forwarding state
+[   21.090000] SPECTRAL : Legacy (Non-11AC)
+[   21.090000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2432)
+[   21.100000] Spectral scan is already ACTIVE on channel 2432
+[   21.310000] SPECTRAL : Legacy (Non-11AC)
+[   21.310000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2437)
+[   21.320000] Spectral scan is already ACTIVE on channel 2437
+[   21.530000] SPECTRAL : Legacy (Non-11AC)
+[   21.530000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2442)
+[   21.540000] Spectral scan is already ACTIVE on channel 2442
+[   21.750000] SPECTRAL : Legacy (Non-11AC)
+[   21.750000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2447)
+[   21.760000] Spectral scan is already ACTIVE on channel 2447
+[   21.970000] SPECTRAL : Legacy (Non-11AC)
+[   21.970000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2452)
+[   21.980000] Spectral scan is already ACTIVE on channel 2452
+[   22.190000] SPECTRAL : Legacy (Non-11AC)
+[   22.190000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2457)
+[   22.200000] Spectral scan is already ACTIVE on channel 2457
+[   22.410000] SPECTRAL : Legacy (Non-11AC)
+[   22.410000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2462)
+[   22.420000] Spectral scan is already ACTIVE on channel 2462
+[   22.630000] SPECTRAL : Legacy (Non-11AC)
+[   22.630000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2467)
+[   22.640000] Spectral scan is already ACTIVE on channel 2467
+[   22.850000] SPECTRAL : Legacy (Non-11AC)
+[   22.850000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2472)
+[   22.860000] Spectral scan is already ACTIVE on channel 2472
+[   23.010000] br-lan: port 2(ath0) entered forwarding state
+[   23.090000] SPECTRAL : Legacy (Non-11AC)
+[   23.100000] SPECTRAL : (Legacy) 20MHz Channel Width (Channel = 2412)
+[   23.100000] Enabled spectral scan on channel 2412
+[   23.120000] Channel 1 average beacon RSSI 2 noisefloor -112 SS Chan Load 0 ieee80211_acs_find_best_11ng_centerchan chan: 1 beacon RSSI + weighted noisefloor: -222
+[   23.130000] Channel 6 average beacon RSSI 2 noisefloor -113 SS Chan Load 0 ieee80211_acs_find_best_11ng_centerchan chan: 6 beacon RSSI + weighted noisefloor: -224
+[   23.150000] Channel 6 average beacon RSSI 2 noisefloor -113 SS Chan Load 0 ieee80211_acs_find_best_11ng_centerchan chan: 6 beacon RSSI + weighted noisefloor: -224
+[   23.160000] Channel 11 average beacon RSSI 8 noisefloor -102 SS Chan Load 0 ieee80211_acs_find_best_11ng_centerchan chan: 11 beacon RSSI + weighted noisefloor: -196
+[   23.170000] ieee80211_acs_find_best_11ng_centerchan found best 11ng center chan: 6 rssi: -224
+[   23.180000] mlme_create_infra_bss : Overriding HT40 channel with HT20 channel
+[   28.870000] 
+[   28.870000] Enet:0 port2 up
+[   28.870000] ATH_MAC_TIMER: enet unit:0 is up...
+[   28.880000] RGMii 1000Mbps full duplex
+[   28.880000] ATH_MAC_TIMER: done cfg2 0x7215 ifctl 0x0 miictrl  
+[   28.890000] br-lan: port 1(eth0.1) entered forwarding state
+[   28.890000] br-lan: port 1(eth0.1) entered forwarding state
+[   30.890000] br-lan: port 1(eth0.1) entered forwarding state
+
+MimoAP login: root
+Password: 
+
+
+BusyBox v1.19.4 (2013-09-05 01:51:36 GMT) built-in shell (ash)
+Enter 'help' for a list of built-in commands.
+
+  _______                     ________        __
+ |       |.-----.-----.-----.|  |  |  |.----.|  |_
+ |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
+ |_______||   __|_____|__|__||________||__|  |____|
+          |__| W I R E L E S S   F R E E D O M
+ -----------------------------------------------------
+ ATTITUDE ADJUSTMENT (Attitude Adjustment, r36088)
+ -----------------------------------------------------
+  * 1/4 oz Vodka      Pour all ingredients into mixing
+  * 1/4 oz Gin        tin with ice, strain into glass.
+  * 1/4 oz Amaretto
+  * 1/4 oz Triple sec
+  * 1/4 oz Peach schnapps
+  * 1/4 oz Sour mix
+  * 1 splash Cranberry juice
+ -----------------------------------------------------
+root@MimoAP:~# 
+
+root@MimoAP:~# cat /etc/config/network 
+
+config interface 'loopback'
+        option ifname 'lo'
+        option proto 'static'
+        option ipaddr '127.0.0.1'
+        option netmask '255.0.0.0'
+
+config interface 'lan'
+        option ifname 'eth0.1'
+        option type 'bridge'
+        option proto 'static'
+        option ipaddr '192.168.1.1'
+        option netmask '255.255.255.0'
+
+config interface 'wan'
+        option ifname 'eth0.2'
+        option proto 'dhcp'
+
+root@MimoAP:~# 
+root@MimoAP:~# 
+root@MimoAP:~# 
+root@MimoAP:~# ifconfig -a
+ath0      Link encap:Ethernet  HWaddr 04:F0:21:0A:F1:6E  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+br-lan    Link encap:Ethernet  HWaddr 04:F0:21:0A:F1:6C  
+          inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+eth0      Link encap:Ethernet  HWaddr 04:F0:21:0A:F1:6C  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:317 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:127117 (124.1 KiB)
+
+eth0.1    Link encap:Ethernet  HWaddr 04:F0:21:0A:F1:6C  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+eth0.2    Link encap:Ethernet  HWaddr 04:F0:21:0A:F1:6C  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:317 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:124581 (121.6 KiB)
+
+gre0      Link encap:UNSPEC  HWaddr 00-00-00-00-BA-90-00-48-00-00-00-00-00-00-00-00  
+          NOARP  MTU:1476  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+ifb0      Link encap:Ethernet  HWaddr 16:BB:C2:FB:96:4C  
+          BROADCAST NOARP  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:32 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+ifb1      Link encap:Ethernet  HWaddr FA:59:25:2A:C8:5E  
+          BROADCAST NOARP  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:32 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:7584 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:7584 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:515712 (503.6 KiB)  TX bytes:515712 (503.6 KiB)
+
+wifi0     Link encap:UNSPEC  HWaddr 04-F0-21-0A-F1-6E-00-48-00-00-00-00-00-00-00-00  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:32434 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:26452 errors:2734 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+          Interrupt:47 Memory:b8100000-b8120000 
+
+root@MimoAP:~# brctl show
+bridge name     bridge id               STP enabled     interfaces
+br-lan          8000.04f0210af16c       no              eth0.1
+                                                        ath0
+root@MimoAP:~# cat /proc/net/vlan/
+config  eth0.1  eth0.2
+root@MimoAP:~# cat /proc/net/vlan/config 
+VLAN Dev name    | VLAN ID
+Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
+eth0.1         | 1  | eth0
+eth0.2         | 2  | eth0
+root@MimoAP:~# 
+
+
+Jun 10,2014
+About Compex WPJ344 board:
+DRAM: W9751G6KB is a 512M bits DDR2 SDRAM, organized as 8,388,608 words x 4 banks x 16 bits. 64MByte 16bit width.
+
+Tried mainline U-boot u-boot-2014.07-rc2.tar.bz2.
+1. Add patch from http://lists.denx.de/pipermail/u-boot/2013-November/168120.html. Totally 7 patches. Need some minor tweak for boards.cfg.
+2. Make a RAM version: 
+	2.1. In boards.h
+Active  mips        mips32         ar7240      -               wpj344              wpj344                               wpj344:MIPS32,SYS_BIG_ENDIAN,SYS_TEXT_BASE=0x80100000
+	2.2. In include/configs/wpj344.h
+///////MHX JEFFLI #define CONFIG_RANDOM_MACADDR         0
+//MHX JEFFLI
+#define CONFIG_SKIP_LOWLEVEL_INIT 1
+3. make wpj344.config;make
+
+Jun 3, 2014
+About some U-boot commands. VIP2 board RAM starts at 0x80000000 FLASH starts at 0xBF000000. Make a RAM version UBoot:
+1. u-boot/board/ar7100/VIP2/Makefile: 
+SOBJS	= ../common/lowlevel_init.o
+#SOBJS	= lowlevel_init.o
+2. u-boot/board/ar7100/VIP2/config.mk
+# ROM version
+# TEXT_BASE = 0xbf000000
+# SDRAM version
+TEXT_BASE = 0xa1000000
+
+3. make VIP2_config;make to generate the RAM version UBoot. Copy u-boot(ELF) and u-boot.bin(BIN) to /tftp
+
+4. TO compare copy /home/Jeff/project/ar71xx_vip2/build_dir/linux-ar71xx/vmlinux, and vmlinux.elf and vmlinux-VIP2-uImage to /tftp.
+
+5. Test the VIP2 kernel images:
+	5.1 Bootelf command:
+VIP2> tftpboot 0xa2000000 vmlinux.elf
+
+enet0 port4 up
+Using eth0 device
+TFTP from server 192.168.168.100; our IP address is 192.168.168.39
+Filename 'vmlinux.elf'.
+Load address: 0xa2000000
+Loading: #################################################################
+         #################################################################
+         #################################################################
+         #################################################################
+         #################################################################
+         #################################################################
+         #################################################################
+         #################################################################
+         #################################################################
+         #####################################################
+done
+Bytes transferred = 3263356 (31cb7c hex)
+VIP2> bootelf 0xa2000000
+Loading .text @ 0x80060000 (2537424 bytes)
+Loading __ex_table @ 0x802cb7d0 (5872 bytes)
+Loading .rodata @ 0x802cd000 (266416 bytes)
+Loading .pci_fixup @ 0x8030e0b0 (48 bytes)
+Loading __ksymtab @ 0x8030e0e0 (18936 bytes)
+Loading __ksymtab_gpl @ 0x80312ad8 (8888 bytes)
+Loading __ksymtab_strings @ 0x80314d90 (61002 bytes)
+Loading __param @ 0x80323bdc (1060 bytes)
+Loading .data @ 0x80324000 (125856 bytes)
+Loading .init.text @ 0x80343000 (134280 bytes)
+Loading .init.data @ 0x80363c88 (30072 bytes)
+Loading .exit.text @ 0x8036b200 (5740 bytes)
+Clearing .bss @ 0x8036d000 (121456 bytes)
+## Starting application at 0x80064550 ...
+Initrd not found or empty - disabling initrd
+Zone PFN ranges:
+  Normal   0x00000000 -> 0x00004000
+Movable zone start PFN for each node
+early_node_map[1] active PFN ranges
+    0: 0x00000000 -> 0x00004000
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 16256
+Kernel command line:  0xa2000000
+PID hash table entries: 256 (order: -2, 1024 bytes)
+Dentry cache hash table entries: 8192 (order: 3, 32768 bytes)
+Inode-cache hash table entries: 4096 (order: 2, 16384 bytes)
+Primary instruction cache 64kB, VIPT, 4-way, linesize 32 bytes.
+Primary data cache 32kB, 4-way, VIPT, cache aliases, linesize 32 bytes
+Writing ErrCtl register=00000000
+Readback ErrCtl register=00000000
+Memory: 61272k/65536k available (2477k kernel code, 4196k reserved, 476k data, 168k init, 0k highmem)
+SLUB: Genslabs=7, HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+Hierarchical RCU implementation.
+NR_IRQS:56
+...But can not boot up to login finally
+	5.2 bootm command:
+VIP2> tftpboot 0xa2000000 vmlinux-VIP2.uImage
+
+enet0 port4 up
+Using eth0 device
+TFTP from server 192.168.168.100; our IP address is 192.168.168.39
+Filename 'vmlinux-VIP2.uImage'.
+Load address: 0xa2000000
+Loading: #################################################################
+         #################################################################
+         #################################################################
+         #################################################################
+         ##################
+done
+Bytes transferred = 1421871 (15b22f hex)
+VIP2> imls
+Image at BF080000:
+   Image Name:   MIPS OpenWrt Linux-2.6.32.9
+   Created:      2014-03-06  22:16:40 UTC
+   Image Type:   MIPS Linux Kernel Image (gzip compressed)
+   Data Size:    1421809 Bytes =  1.4 MB
+   Load Address: 80060000
+   Entry Point:  80060000
+   Verifying Checksum ... OK
+VIP2> iminfo
+
+## Checking Image at a2000000 ...
+   Image Name:   MIPS OpenWrt Linux-2.6.32.9
+   Created:      2014-04-25  15:18:34 UTC
+   Image Type:   MIPS Linux Kernel Image (gzip compressed)
+   Data Size:    1421807 Bytes =  1.4 MB
+   Load Address: 80060000
+   Entry Point:  80060000
+   Verifying Checksum ... OK
+VIP2> bootm 0xa2000000
+## Booting image at a2000000 ...
+   Image Name:   MIPS OpenWrt Linux-2.6.32.9
+   Created:      2014-04-25  15:18:34 UTC
+   Image Type:   MIPS Linux Kernel Image (gzip compressed)
+   Data Size:    1421807 Bytes =  1.4 MB
+   Load Address: 80060000
+   Entry Point:  80060000
+   Verifying Checksum ... OK
+   Uncompressing Kernel Image ... OK
+
+Starting kernel ...
+
+Initrd not found or empty - disabling initrd
+Zone PFN ranges:
+  Normal   0x00000000 -> 0x00004000
+Movable zone start PFN for each node
+early_node_map[1] active PFN ranges
+    0: 0x00000000 -> 0x00004000
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 16256
+Kernel command line:  rootfstype=squashfs,jffs2 console=ttyS0,115200 board=VIP2 console_quiet=0
+PID hash table entries: 256 (order: -2, 1024 bytes)
+Dentry cache hash table entries: 8192 (order: 3, 32768 bytes)
+--------The whole system boots up successfully finally.
+
+6. Test UBoot image
+	6.1 Bootelf command and bootm command
+VIP2> tftpboot 0xa3000000 u-boot
+
+enet0 port4 up
+Using eth0 device
+TFTP from server 192.168.168.100; our IP address is 192.168.168.39
+Filename 'u-boot'.
+Load address: 0xa3000000
+Loading: ################################################################
+done
+Bytes transferred = 323437 (4ef6d hex)
+VIP2> bootm 0xa3000000
+## Booting image at a3000000 ...
+Bad Magic Number
+VIP2> bootelf 0xa3000000
+Loading .text @ 0xa1000000 (142880 bytes)
+Loading .rodata @ 0xa1022e20 (2480 bytes)
+Loading .reginfo @ 0xa10237d0 (24 bytes)
+Loading .rodata.str1.4 @ 0xa10237e8 (21696 bytes)
+Loading .data @ 0xa1028cb0 (1712 bytes)
+Loading .data.rel.local @ 0xa1029360 (3732 bytes)
+Loading .data.rel @ 0xa102a1f4 (84 bytes)
+Loading .data.rel.ro.local @ 0xa102a248 (12 bytes)
+Loading .got @ 0xa102a260 (1368 bytes)
+Loading .u_boot_cmd @ 0xa102a7b8 (1128 bytes)
+Clearing .bss @ 0xa102ac20 (40308 bytes)
+Clearing .scommon @ 0xa1034994 (172 bytes)
+## Starting application at 0xa1000000 ...
+
+
+U-Boot 1.1.4 (Jun  3 2014 - 15:50:25)
+
+SPI Flash ID=0x202018
+flash size 16MB, sector count = 64
+Flash: 16 MB
+In:    serial
+Out:   serial
+Err:   serial
+Net:   ag7100_enet_initialize...
+
+Resetting phy failed
+eth0: 00:03:7f:09:0b:ad
+eth0 up
+eth0
+Warning: eth0 MAC addresses don't match:
+Address in SROM is         00:03:7F:09:0B:AD
+Address in environment is  00:0F:92:00:C7:4F
+
+Ctrl+C to stop autoboot:  0 
+## Booting image at bf080000 ...
+   Image Name:   MIPS OpenWrt Linux-2.6.32.9
+   Created:      2014-03-06  22:16:40 UTC
+   Image Type:   MIPS Linux Kernel Image (gzip compressed)
+   Data Size:    1421809 Bytes =  1.4 MB
+   Load Address: 80060000
+   Entry Point:  80060000
+   Verifying Checksum ... OK
+   Uncompressing Kernel Image ... OK
+
+Starting kernel ...
+
+Initrd not found or empty - disabling initrd
+Zone PFN ranges:
+  Normal   0x00000000 -> 0x00004000
+Movable zone start PFN for each node
+early_node_map[1] active PFN ranges
+    0: 0x00000000 -> 0x00004000
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 16256
+Kernel command line:  rootfstype=squashfs,jffs2 console=ttyS0,115200 board=VIP2 console_quiet=0
+PID hash table entries: 256 (order: -2, 1024 bytes)
+Dentry cache hash table entries: 8192 (order: 3, 32768 bytes)
+Inode-cache hash table entries: 4096 (order: 2, 16384 bytes)
+Primary instruction cache 64kB, VIPT, 4-way, linesize 32 bytes.
+Primary data cache 32kB, 4-way, VIPT, cache aliases, linesize 32 bytes
+Writing ErrCtl register=00000000
+Readback ErrCtl register=00000000
+Memory: 61272k/65536k available (2477k kernel code, 4196k reserved, 476k data, 168k init, 0k highmem)
+SLUB: Genslabs=7, HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+Hierarchical RCU implementation.
+NR_IRQS:56
+Calibrating delay loop... 239.20 BogoMIPS (lpj=1196032)
+----Finally boots up successfully.
+	6.2 Bootm command:
+	UBoot is not made an image by mkimage command so that UBoot cant recoginze it by bootm command.
+	6.3 GO command
+The TEXT section of RAM version UBoot is at 0xa1000000.So try this:
+VIP2> tftpboot 0xa1000000 u-boot.bin
+
+enet0 port4 up
+Using eth0 device
+TFTP from server 192.168.168.100; our IP address is 192.168.168.39
+Filename 'u-boot.bin'.
+Load address: 0xa1000000
+Loading: ###################################
+done
+Bytes transferred = 175136 (2ac20 hex)
+VIP2> md 0xa1000000
+a1000000: 100000ff 00000000 100000fd 00000000    ................
+a1000010: 10000e0a 00000000 10000e08 00000000    ................
+a1000020: 10000e06 00000000 10000e04 00000000    ................
+a1000030: 10000e02 00000000 10000e00 00000000    ................
+a1000040: 10000dfe 00000000 10000dfc 00000000    ................
+a1000050: 10000dfa 00000000 10000df8 00000000    ................
+a1000060: 10000df6 00000000 10000df4 00000000    ................
+a1000070: 10000df2 00000000 10000df0 00000000    ................
+a1000080: 10000dee 00000000 10000dec 00000000    ................
+a1000090: 10000dea 00000000 10000de8 00000000    ................
+a10000a0: 10000de6 00000000 10000de4 00000000    ................
+a10000b0: 10000de2 00000000 10000de0 00000000    ................
+a10000c0: 10000dde 00000000 10000ddc 00000000    ................
+a10000d0: 10000dda 00000000 10000dd8 00000000    ................
+a10000e0: 10000dd6 00000000 10000dd4 00000000    ................
+a10000f0: 10000dd2 00000000 10000dd0 00000000    ................
+VIP2> go 0xa1000000
+## Starting application at 0xA1000000 ...
+
+
+U-Boot 1.1.4 (Jun  3 2014 - 15:50:25)
+
+SPI Flash ID=0x202018
+flash size 16MB, sector count = 64
+Flash: 16 MB
+In:    serial
+Out:   serial
+Err:   serial
+Net:   ag7100_enet_initialize...
+
+Resetting phy failed
+eth0: 00:03:7f:09:0b:ad
+eth0 up
+eth0
+Warning: eth0 MAC addresses don't match:
+Address in SROM is         00:03:7F:09:0B:AD
+Address in environment is  00:0F:92:00:C7:4F
+
+Ctrl+C to stop autoboot:  0 
+## Booting image at bf080000 ...
+   Image Name:   MIPS OpenWrt Linux-2.6.32.9
+   Created:      2014-03-06  22:16:40 UTC
+   Image Type:   MIPS Linux Kernel Image (gzip compressed)
+   Data Size:    1421809 Bytes =  1.4 MB
+   Load Address: 80060000
+   Entry Point:  80060000
+   Verifying Checksum ... OK
+   Uncompressing Kernel Image ... OK
+
+Starting kernel ...
+
+Initrd not found or empty - disabling initrd
+Zone PFN ranges:
+  Normal   0x00000000 -> 0x00004000
+Movable zone start PFN for each node
+early_node_map[1] active PFN ranges
+    0: 0x00000000 -> 0x00004000
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 16256
+Kernel command line:  rootfstype=squashfs,jffs2 console=ttyS0,115200 board=VIP2 console_quiet=0
+PID hash table entries: 256 (order: -2, 1024 bytes)
+Dentry cache hash table entries: 8192 (order: 3, 32768 bytes)
+Inode-cache hash table entries: 4096 (order: 2, 16384 bytes)
+Primary instruction cache 64kB, VIPT, 4-way, linesize 32 bytes.
+Primary data cache 32kB, 4-way, VIPT, cache aliases, linesize 32 bytes
+Writing ErrCtl register=00000000
+Readback ErrCtl register=00000000
+Memory: 61272k/65536k available (2477k kernel code, 4196k reserved, 476k data, 168k init, 0k highmem)
+SLUB: Genslabs=7, HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+Hierarchical RCU implementation.
+NR_IRQS:56
+Calibrating delay loop... 239.20 BogoMIPS (lpj=1196032)
+Mount-cache hash table entries: 512
+NET: Registered protocol family 16
+MIPS: machine is Microhard VIP2
+registering PCI controller with io_map_base unset
+bio: create slab <bio-0> at 0
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+i2c-gpio i2c-gpio.0: using pins 4 (SDA) and 5 (SCL, no clock stretching)
+pci 0000:00:00.0: PME# supported from D0 D1 D2 D3hot
+pci 0000:00:00.0: PME# disabled
+pci 0000:00:13.0: PME# supported from D0 D3hot
+pci 0000:00:13.0: PME# disabled
+PCI: mapping irq 48 to pin1@0000:00:13.0
+Switching to clocksource MIPS
+------Successful bootup.
+
+Jun 2,2014
+1. In the dev dir /home/Jeff/project/ar9344/project/aa-20140423-sdk/sdkath10k-130716/openwrt/package/uboot-ar7100-mhx, the all ar7240 CPU related files are overwritten by the u-boot_mod-master source.
+
+2. In link stage:
+mips-openwrt-linux-ld -Bstatic -T /home/Jeff/project/ar9344/project/aa-20140423-sdk/sdkath10k-130716/openwrt/build_dir/linux-ar71xx_generic/u-boot-VIP4G/u-boot-microhard-ar71xx-VIP4G/board/ar7240/db12x/u-boot.lds -Ttext 0x80010000  $UNDEF_SYM cpu/mips/start.o \
+			--start-group lib_generic/libgeneric.a common/libcommon.a board/ar7240/db12x/libdb12x.a cpu/mips/libmips.a cpu/mips/ar7240/libar7240.a lib_mips/libmips.a fs/cramfs/libcramfs.a fs/fat/libfat.a fs/fdos/libfdos.a fs/jffs2/libjffs2.a fs/reiserfs/libreiserfs.a fs/ext2/libext2fs.a disk/libdisk.a dtt/libdtt.a drivers/libdrivers.a drivers/sk98lin/libsk98lin.a net/libnet.a rtc/librtc.a post/libpost.a post/cpu/libcpu.a  --end-group -L /home/Jeff/project/ar9344/project/aa-20140423-sdk/sdkath10k-130716/openwrt/staging_dir/toolchain-mips_r2_gcc-4.7.0_uClibc-0.9.33.2/lib/gcc/mips-openwrt-linux-uclibc/4.7.0 -lgcc \
+			-Map u-boot.map -o u-boot
+cpu/mips/start.o: In function `reset':
+(.text+0x4b0): undefined reference to `_GLOBAL_OFFSET_TABLE_'
+make[3]: *** [u-boot] Error 1
+
+It's a linker issure. The same source code can be compile and link with toolchain-mips_r2_gcc-4.1.2_uClibc-0.9.30.1. I've tried all the toolchain options in AA branch (4.6.2, 4.7.0, 4.5.x with Linaro, 4.6.x with Linaro, 4.7.x with Linaro) with the same link error.
+
+May 30,2014
+OpenOCD should be configured with --enable-parport otherwise it doesn't support the Wiggler parallel debugger. Run openocd with "sudo" otherwise it can't open /dev/parport0. 
+
+
+May 28,2014
+USBJTAG NT:
+SN：00005756025 E-Mail：llei@microhardcorp.com      Activate code:622619501440
+SN：00005757122 E-Mail：yguan@microhardcorp.com Activate code:626367769233. But the label on this device is 00005757.
+
+May 26,2014
+The old VIP4G bootloader source code can't be compiled with new compiler like in AR9374.
+
+	mips-openwrt-linux-ld -Bstatic -T /home/Jeff/project/ar9344/project/aa-20140423-sdk/sdkath10k-130716/openwrt/build_dir/linux-ar71xx_generic/u-boot-VIP4G/u-boot-microhard-ar71xx-VIP4G/board/ar7100/VIP4G/u-boot.lds -Ttext 0xbf000000  $UNDEF_SYM cpu/mips/start.o \
+			--start-group lib_generic/libgeneric.a common/libcommon.a board/ar7100/VIP4G/libVIP4G.a cpu/mips/libmips.a cpu/mips/ar7100/libar7100.a lib_mips/libmips.a fs/cramfs/libcramfs.a fs/fat/libfat.a fs/fdos/libfdos.a fs/jffs2/libjffs2.a fs/reiserfs/libreiserfs.a fs/ext2/libext2fs.a disk/libdisk.a dtt/libdtt.a drivers/libdrivers.a drivers/sk98lin/libsk98lin.a net/libnet.a rtc/librtc.a post/libpost.a post/cpu/libcpu.a  --end-group -L /home/Jeff/project/ar9344/project/aa-20140423-sdk/sdkath10k-130716/openwrt/staging_dir/toolchain-mips_r2_gcc-4.6-linaro_uClibc-0.9.33.2/lib/gcc/mips-openwrt-linux-uclibc/4.6.3 -lgcc \
+			-Map u-boot.map -o u-boot
+cpu/mips/start.o: In function `reset':
+(.text+0x4b4): undefined reference to `_GLOBAL_OFFSET_TABLE_'
+make: *** [u-boot] Error 1
+[Jeff@DENG0033 u-boot-microhard-ar71xx-VIP4G]$ echo $PATH
+/home/Jeff/project/ar9344/project/aa-20140423-sdk/sdkath10k-130716/openwrt/staging_dir/toolchain-mips_r2_gcc-4.6-linaro_uClibc-0.9.33.2/bin/:/usr/lib/qt-3.3/bin:/usr/kerberos/sbin:/usr/kerberos/bin:/usr/lib/ccache:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:/home/Jeff/bin
+[Jeff@DENG0033 u-boot-microhard-ar71xx-VIP4G]$ 
+
+
+May 16,2014
+UBoot of AR9344, see http://wiki.openwrt.org/doc/techref/bootloader/uboot, and https://github.com/pepe2k/u-boot_mod.
+
+Devices using AR9344:
+TP-LINK TL-WDR3500	wireless router	TE7WDR3500			AR9344				8 MiB	128 MiB		AR9344	2x2:2		AR9582	2x2:2	abgn	64:70:02	64:70:02	2012
+TP-LINK TL-WDR3600	wireless router	TE7WDR3600	TP-LINK		AR9344	560 MHz			8 MiB	128 MiB		AR9344	2x2:2		AR9582	2x2:2	abgn			2012
+TP-LINK TL-WDR4300	wireless router	TE7WDR4300			AR9344	560 MHz			8 MiB	128 MiB		AR9344	2x2:2	AR9580		3x3:3	abgn			2012
+TP-LINK TL-WDR4310	wireless router				AR9344	550 MHz			8 MiB	128 MiB		AR9344	2x2:2	AR9580		3x3:3	abgn			2012
+Compex WPJ344 (WPJ344HV)	wireless embedded board
+general purpose				AR9344	533 MHz			8 MiB	128 MiB		AR9344	2x2:2				abgn			2013
+Compex WPJ344 (WPJ344LV)	wireless embedded board
+general purpose				AR9344	533 MHz			8 MiB	128 MiB		AR9344	2x2:2				abgn			2013
+D-Link DAP-2690 rev B1	access point	KA2AP2690B1	Alpha Networks	WAP-ND17	AR9344							AR9344	2x2:2			2x2:2	abgn			2012
+D-Link DHP-1565 rev A1	wireless router	KA2HP1565A1	Cameo		AR9344		AR7400			128 MiB		AR9344	2x2:2				bgn			2011
+D-Link DIR-825 rev C1	wireless router	KA2IR825C1	Cameo		AR9344	560 MHz			16 MiB	128 MiB		AR9344	2x2:2	AR9282		2x2:2	abgn			2012
+D-Link DIR-835 rev A1	wireless router	KA2IR835A1	Cameo		AR9344	560 MHz			16 MiB	128 MiB		AR9344	2x2:2			3x3:3	abgn	B8:A3:86CC:B2:55	B8:A3:86 CC:B2:55	2012
+
+WPJ344 built-in BL log:
+�r7240> reset
+
+U-Boot 1.1.4 (Build from LSDK-9.5.3.16 at Aug  2 2013 - 15:29:05)
+
+U-Boot DB120
+Wasp 1.2
+
+DRAM:  128 MB
+Top of RAM usable for U-Boot at: 88000000
+Reserving 144k for U-Boot at: 87fd8000
+Reserving 192k for malloc() at: 87fa8000
+Reserving 44 Bytes for Board Info at: 87fa7fd4
+Reserving 36 Bytes for Global Data at: 87fa7fb0
+Reserving 128k for boot params() at: 87f87fb0
+Stack Pointer at: 87f87f98
+Now running in RAM - U-Boot at: 87fd8000
+Flash Manuf Id 0xc2, DeviceId0 0x20, DeviceId1 0x17
+Flash found: mx25l 8MB
+Flash:  8 MB
+Using default environment
+
+eth_set_enetaddr(num=0, addr=04:f0:21:0a:f2:a8)
+eth_set_enetaddr(num=0, addr=04:f0:21:0a:f2:a8)
+In:    serial
+Out:   serial
+Err:   serial
+Net:   ag934x_enet_initialize...
+ wasp  reset mask:c02200 
+WASP  ----> S17 PHY *
+athrs17_reg_init: complete
+: cfg1 0x80000000 cfg2 0x7114
+eth0: 04:f0:21:0a:f2:a8
+eth0 up
+eth0
+Setting 0xb8116290 to 0x3c782d0f
+Hit any key to stop autoboot:  0 
+ar7240> 
+ar7240> 
+ar7240> print
+bootargs=console=ttyS0,115200 root=31:02 rootfstype=jffs2 init=/sbin/init mtdparts=ath-nor0:256k(u-boot),64k(u-boot-env),6336k(rootfs),1408k(uImage),64k(mib0),64k(ART)
+bootdelay=1
+baudrate=115200
+ipaddr=192.168.1.1
+serverip=192.168.1.10
+loadaddr=0x80060000
+dir=
+lu=tftp 0x80060000 ${dir}tuboot.bin&&erase 0x9f000000 +$filesize&&cp.b $fileaddr 0x9f000000 $filesize
+lf=tftp 0x80060000 ${dir}db12x${bc}-jffs2&&erase 0x9f050000 +0x630000&&cp.b $fileaddr 0x9f050000 $filesize
+lk=tftp 0x80060000 ${dir}vmlinux${bc}.lzma.uImage&&erase 0x9f680000 +$filesize&&cp.b $fileaddr 0x9f680000 $filesize
+ethaddr=04:f0:21:0a:f2:a8
+bootcmd=bootm 0x9f680000 || bootm 0x9f030000
+stdin=serial
+stdout=serial
+stderr=serial
+ethact=eth0
+
+
+Environment size: 711/65532 bytes
+
+
+WPJ344 Evel-board MTD partitions:
+root@OpenWrt:~# cat /proc/mtd 
+dev:    size   erasesize  name
+mtd0: 00040000 00010000 "u-boot"
+mtd1: 00010000 00010000 "u-boot-env"
+mtd2: 00630000 00010000 "rootfs"
+mtd3: 001d0000 00010000 "rootfs_data"
+mtd4: 00160000 00010000 "kernel"
+mtd5: 00010000 00010000 "nvram"
+mtd6: 00010000 00010000 "art"
+mtd7: 00790000 00010000 "firmware"
+
+May 13,2014
+AR9344 platform:
+1. Change default IP addr: package/base-files/files/lib/functions/uci-defaults.sh. The package/base-files/files/etc/config/network was not copied to rootfs so the uci-defaults.sh generates the final config/network.
+2.webif theme: package/feeds/xwrt/webif/files/etc/config/webif.clubman and vip4g.
+
