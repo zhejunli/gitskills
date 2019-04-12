@@ -1,3 +1,28 @@
+Apr 11, 2019
+iw "$ifname" set bitrates legacy-2.4 6 9 12 18 24 36 ht-mcs-2.4 "$rate" : This can not fix the rate. It behaves like a ceiling rate instead of FIXED rate.
+echo "$rate" > /sys/kernel/debug/ieee80211/"$phy"/rc/fixed_rate_idx : This really fixes the tx rate.
+
+Apr 10, 2019
+Flent net tester: 
+1. irtt : The :command:`irtt` tool is highly recommended for UDP measurements. IRTT measures round-trip time and other latency related metrics using UDP packets sent on a fixed period, and produces both text and JSON output. That test needs a irtt server running on server side.
+2. D-ITG Tool : If the server side doesn't install Flent, this test can not be done. See:
+jli@DENG-JEFFL:~/project/work/g3/pddl-branch$ ll /usr/share/doc/flent/misc/
+total 52
+drwxr-xr-x 2 root root 4096 Mar 21 16:20 ./
+drwxr-xr-x 4 root root 4096 Mar 21 16:20 ../
+-rw-r--r-- 1 root root 5464 Apr 17  2018 ditg-control-server.py.gz
+-rw-r--r-- 1 root root 2392 Apr 17  2018 ditg-ignore-client-log.patch
+-rw-r--r-- 1 root root 2434 Apr 17  2018 file_iterate.c.gz
+-rw-r--r-- 1 root root 3720 Apr 17  2018 iperf-server.py
+-rw-r--r-- 1 root root  514 Apr 17  2018 Makefile
+-rw-r--r-- 1 root root 2618 Apr 17  2018 tc_iterate.c.gz
+-rw-r--r-- 1 root root 1755 Apr 17  2018 tcpdump-wrapper.py.gz
+-rw-r--r-- 1 root root 1905 Apr 17  2018 testcontrol-web-service.py.gz
+-rw-r--r-- 1 root root   37 Apr 17  2018 test-exec.sh
+-rw-r--r-- 1 root root 3815 Apr 17  2018 wifistats_iterate.c.gz
+Due to the hassle of using D-ITG, it is recommended to install :command:`irtt` instead and use that for VoIP tests.
+
+
 Apr 2, 2019
 Continue the weekend test. This morning  (Tuesday) found a reauth really happened once last night:
 setting reauth timer for 272800 seconds
@@ -19510,12 +19535,12 @@ Interface wlan0
         type AP
         wiphy 0
         channel 11 (2462 MHz), width: 20 MHz, center1: 2462 MHz				// scan channel 2562, the scan frequency is from 2452-2472 in PWii 20MHz.
-root@UserDevice:~# echo 1 > sys/kernel/debug/ieee80211/phy0/ath9k/spectral_count	// 1 scan
+root@UserDevice:~# echo 1 > sys/kernel/debug/ieee80211/phy0/ath9k/spectral_count	// 1 scan. only 1 sample point produced in each bin(sub-carrier).
 root@UserDevice:~# echo manual > sys/kernel/debug/ieee80211/phy0/ath9k/spectral_scan_ctl 
 root@UserDevice:~# echo trigger > sys/kernel/debug/ieee80211/phy0/ath9k/spectral_scan_ctl // start scan
 root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/ath9k/spectral_scan0 > sample
 root@UserDevice:~# ls -al sample
--rw-r--r--    1 root     root            76 Apr 22 07:46 sample					// 56 sub-carriers, 76Bytes per scan
+-rw-r--r--    1 root     root            76 Apr 22 07:46 sample					// 56 sub-carriers(bin), 76Bytes per scan = sizeof(struct fft_sample_ht20). Each scan generates 56 sample points in each bin. "spectral_count"=1 means each bin has 1 sample point. [NOTE] When spectral_scan_ctl=chanscan, each bin has 1 sample. But because the scan center freq step is 1MHz, each scan covers 20MHz bandwidth, so the next central frequency scan will produce overlap samples to the previous scan. The result will be that each bin has more than 1 point dispite of spectral_count=1. They're spilled from adjacent scan. 
 root@UserDevice:~# 
 root@UserDevice:~# dmesg -c
 [  348.410000] ===MHX(write_file_spec_scan_ctl)Scan triggered [ktime_t time 428345145nS].
