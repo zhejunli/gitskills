@@ -1,3 +1,1032 @@
+JUn 20, 2019
+QT Creator compile a android armv7(MotoG3) Qt sample project, link error:
+
+/home/jli/Android/Sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ -D__ANDROID_API__=16 -target armv7-none-linux-androideabi -gcc-toolchain /home/jli/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64 -fno-limit-debug-info -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libatomic.a -Wl,--exclude-libs,libunwind.a --sysroot=/home/jli/Android/Sdk/ndk-bundle/platforms/android-16/arch-arm/ -Wl,-soname,libmainwindow.so -Wl,-rpath=/home/jli/Qt/5.12.3/android_armv7/lib -Wl,--no-undefined -Wl,-z,noexecstack -shared -o libmainwindow.so colorswatch.o mainwindow.o toolbar.o main.o qrc_mainwindow.o moc_colorswatch.o moc_mainwindow.o moc_toolbar.o   -L/home/jli/Qt/5.12.3/android_armv7/lib -lQt5Widgets -L/opt/android/android-ndk-r18b/sources/cxx-stl/llvm-libc++/libs/armeabi-v7a -lQt5Gui -lQt5Core -lGLESv2  -L/home/jli/Android/Sdk/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/armeabi-v7a /home/jli/Android/Sdk/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/armeabi-v7a/libc++.so.16 -llog -lz -lm -ldl -lc
+/home/jli/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/lib/gcc/arm-linux-androideabi/4.9.x/../../../../arm-linux-androideabi/bin/ld: error: cannot find -lc++
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+make: *** [libmainwindow.so] Error 1
+16:16:39: The process "/home/jli/Android/Sdk/ndk-bundle/prebuilt/linux-x86_64/bin/make" exited with code 2.
+Error while building/deploying project mainwindow (kit: Android for armeabi-v7a (Clang Qt 5.12.3 for Android ARMv7))
+
+In Projects, in the "Clang Qt5.12.3 for Android ARMv7" Build option, in "Build Steps"--->Make--->"Make arguments", input "-stdlib=libc++", then build success. App can be deployed to MotoG3 but crashed. Create a very simple Qt app still crashed in MotoG3. Looks this is not a root solution so don't use it.
+
+I saw it's usling /home/jli/Android/Sdk/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/armeabi-v7a/libc++.so.16 file and complaining missling libc++.so filie. So make a link:
+
+jli@DENG-JEFFL:~/Android/Sdk/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/x86$ ln -s libc++.so.16 libc++.so
+jli@DENG-JEFFL:~/Android/Sdk/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/x86$ ll
+total 13320
+drwxrwxr-x 2 jli jli    4096 Jun 21 11:47 ./
+drwxrwxr-x 6 jli jli    4096 Jun 13 11:12 ../
+-rw-rw-r-- 1 jli jli  426136 Jun 13 11:12 libandroid_support.a
+-rw-rw-r-- 1 jli jli      29 Jun 13 11:12 libc++.a.27
+-rw-rw-r-- 1 jli jli      29 Jun 13 11:12 libc++.a.28
+-rw-rw-r-- 1 jli jli      29 Jun 13 11:12 libc++.a.29
+-rw-rw-r-- 1 jli jli 1474980 Jun 13 11:12 libc++abi.a
+-rwxrwxr-x 1 jli jli 5225820 Jun 13 11:12 libc++_shared.so*
+lrwxrwxrwx 1 jli jli      12 Jun 21 11:47 libc++.so -> libc++.so.16
+
+Then ld works fine and app works in the virtual cellphone.
+
+For MotoG3, same thing in another directory:
+jli@DENG-JEFFL:~/Android/Sdk/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/armeabi-v7a$ cat libc++.so.16 
+INPUT(-landroid_support -lunwind -latomic -lc++_shared)
+jli@DENG-JEFFL:~/Android/Sdk/ndk-bundle/sources/cxx-stl/llvm-libc++/libs/armeabi-v7a$ ln -s libc++.so.16 libc++.so
+
+In MotoG3, a basic Qt program needs 23M+ space. Compared with a simple code built by Android Studio, the app in my MotoG3 is only 784KB. Qt program is 25 times bigger than AndroidStudio native program!!!
+
+Jun 20, 2019
+Debug how as256 can survive a PLL reset in pMDDL.
+
+
+<0>[   60.990000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x00000003
+<0>[   60.990000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x0
+<0>[   60.990000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0
+<0>[   60.990000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0 strip_mic=0, mic_error=0
+<0>[   60.990000] ==MHX0.8(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.9(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.10(ath9k_rx_skb_preprocess)
+<0>[   60.990000] ==MHX0.11(ath9k_rx_skb_preprocess)
+
+
+<0>[   61.630000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x00000003
+<0>[   61.630000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x0
+<0>[   61.630000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0
+<0>[   61.630000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0 strip_mic=0, mic_error=0
+<0>[   61.630000] ==MHX0.8(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.9(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.10(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.11(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x00000003
+<0>[   61.630000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x0
+<0>[   61.630000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0
+<0>[   61.630000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0 strip_mic=0, mic_error=0
+<0>[   61.630000] ==MHX0.8(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.9(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.10(ath9k_rx_skb_preprocess)
+<0>[   61.630000] ==MHX0.11(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x00000003
+<0>[   61.990000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x0
+<0>[   61.990000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0
+<0>[   61.990000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0 strip_mic=0, mic_error=0
+<0>[   61.990000] ==MHX0.8(ath9k_rx_skb_preprocess)
+<0>[   61.990000] ==MHX0.9(ath9k_rx_skb_preprocess)
+
+
+<0>[   62.000000] ==MHX0.10(ath9k_rx_skb_preprocess)
+<0>[   62.000000] ==MHX0.11(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x00000003
+<0>[   62.400000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x0
+<0>[   62.400000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0
+<0>[   62.400000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0 strip_mic=0, mic_error=0
+<0>[   62.400000] ==MHX0.8(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.9(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.10(ath9k_rx_skb_preprocess)
+<0>[   62.400000] ==MHX0.11(ath9k_rx_skb_preprocess)
+
+
+<0>[   63.000000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x00000003
+<0>[   63.000000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x0
+<0>[   63.000000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0
+<0>[   63.000000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x0 strip_mic=0, mic_error=0
+<0>[   63.000000] ==MHX0.8(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.9(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.10(ath9k_rx_skb_preprocess)
+<0>[   63.000000] ==MHX0.11(ath9k_rx_skb_preprocess)
+^C
+root@UserDevice:~# cat /proc/kmsg 
+=======================Above is aes256 ping OK. But after echo 0xa > chanbw to reset chip.=====================
+<0>[  107.850000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003
+<0>[  107.850000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20
+<0>[  107.850000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  107.850000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  107.850000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  107.850000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  107.850000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  107.850000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  107.850000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  107.850000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  107.850000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  107.850000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+<0>[  107.850000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003
+<0>[  107.850000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20
+<0>[  107.850000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  107.860000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  107.860000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  107.860000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  107.860000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  107.860000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  107.860000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  107.860000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  107.860000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  107.860000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+
+
+<0>[  108.850000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003
+<0>[  108.850000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20
+<0>[  108.850000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  108.850000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  108.850000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+<0>[  108.850000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003
+<0>[  108.850000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20
+<0>[  108.850000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  108.850000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  108.850000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  108.850000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+
+
+
+<0>[  109.850000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003
+<0>[  109.850000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20
+<0>[  109.850000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  109.850000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  109.850000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  109.850000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  109.850000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  109.850000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  109.850000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  109.850000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  109.850000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  109.850000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+<0>[  109.860000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003
+<0>[  109.860000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20
+<0>[  109.860000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  109.860000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  109.860000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  109.860000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  109.860000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  109.860000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  109.860000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  109.860000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  109.860000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  109.860000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+
+
+
+<0>[  110.860000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003
+<0>[  110.860000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20
+<0>[  110.860000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  110.860000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  110.860000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  110.860000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  110.860000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  110.860000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  110.860000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  110.860000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  110.860000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  110.860000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+
+
+<0>[  111.850000] ==MHX2.0(ath9k_hw_process_rxdesc_edma)rxsp->status11=0x80000003 // AR_KeyMiss happened.
+<0>[  111.850000] ==MHX2.1(ath9k_hw_process_rxdesc_edma) Result rxs->rs_status=0x20 // This means ATH9K_RXERR_KEYMISS, not ATH9K_RX_DELIM_CRC_POST!!!
+<0>[  111.850000] ==MHX0.1(ath9k_rx_skb_preprocess)
+<0>[  111.850000] ==MHX0.2(ath9k_rx_skb_preprocess)
+<0>[  111.850000] ==MHX0.3(ath9k_rx_skb_preprocess)
+<0>[  111.850000] ==MHX0.4(ath9k_rx_skb_preprocess)
+<0>[  111.850000] ==MHX0.5(ath9k_rx_skb_preprocess)
+<0>[  111.850000] ==MHX0.6(ath9k_rx_skb_preprocess)
+<0>[  111.850000] ==MHX0.7(ath9k_rx_skb_preprocess)
+<0>[  111.850000] ==MHX1.0(ath9k_cmn_rx_accept) rx_stats->rs_status=0x20
+<0>[  111.850000] ==MHX1.1(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81 strip_mic=0, mic_error=0
+<0>[  111.850000] ==MHX1.2(ath9k_cmn_rx_accept) rx_stats->rs_status=0x81, status_mask=0xb8
+
+In ath9k_hw_process_rxdesc_edma():
+	if (rxsp->status11 & AR_PostDelimCRCErr)
+		rxs->rs_flags |= ATH9K_RX_DELIM_CRC_POST;
+and
+	if (rxsp->status11 & AR_KeyMiss)
+		rxs->rs_status |= ATH9K_RXERR_KEYMISS; 
+
+don't have conflict because one is rx_flags and one is rs_status !!!
+
+Jun 16, 2019
+In hostapd : 
+	if (!(hapd->iface->drv_flags & WPA_DRIVER_FLAGS_INACTIVITY_TIMER)) {
+		wpa_printf(MSG_DEBUG, "%s: reschedule ap_handle_timer timeout "
+			   "for " MACSTR " (%d seconds - ap_max_inactivity)",
+			   __func__, MAC2STR(sta->addr),
+			   hapd->conf->ap_max_inactivity);
+		eloop_cancel_timeout(ap_handle_timer, hapd, sta);
+		eloop_register_timeout(hapd->conf->ap_max_inactivity, 0,
+				       ap_handle_timer, hapd, sta);
+	}
+ap_handle_timer() only kicks in when WPA_DRIVER_FLAGS_INACTIVITY_TIMER flag is NOT set. Upper layer is NL80211_FEATURE_INACTIVITY_TIMER.
+
+If using hostapd mechanism, the "Inactive time" gradually grows up to about 30sec and the AP sends a probe to STA. If ACK is not received, the STA is kicked out. 
+
+=========================
+QT compile using Android Clang but complain ":-1: error: error: cannot find -lc++". Use Synaptic Package Manager to install libc++7-dev, libc++1-7, libc++abi1-7, libc++abi-7-dev and didn't solve this issue.
+
+Jun 14, 2019
+In QT, Tools->Options->Devices->Android, always complains "Android SDK installation is missing", and a red cross mark in "Platform SDK installed". JDK uses openjdk11 and looks good. Install openjdk8 and point JDK location to openjdk8 solves that red mark. 
+
+Jun 13, 2019
+When iw scan freq [2406...2478], in bw=8Mhz, the dividing is bw=10. So the frequencies in bins will be [2401.703 ... 2482.297]. Observe the sample bin debug info it is true.
+
+Jun 5, 2019
+VSCode toggle the intelliSense colored region: Use Ctrl+Shift+P, in the pop-up window, search "inactive region colorization", then click it to toggle this feature on/off. 
+
+The original calc_sample_ht20_rebin() takes the bandwidth into consideration, eg, 2440MHz:
+1. bw=8M : freq = 2435.7 when i=0; freq = 2444.3 when i=55, FFT_BW=8.6M
+2. bw=4M : f=2437.9 when i=0; f=2442.1 when i=55, FFT_BW=4.25MHz
+3. bw=2M : f=2438.93 when i=0; f=2441.07 when i=55, FFT_BW=2.14MHz
+4. bw=1M : f=2439.46 when i=0; f=2440.54 when i=55, FFT_BW=1.08MHz
+
+Jun 4, 2019
+pDDL2400, spectral_period=31 and spectral_count=16. "iw dev wlan0 scan 2480" at different BW settings. They all scan a whole FFT_BW=20MHz no matter what the BW is. A strange thing is that in BW=2MHz, there are spilled FFT samples in the current working channel, the FFT_BW=20MHz too. 
+
+May 31, 2019
+pMDDL2450, after the STA has a "TX path hung" reset, the aes256 can not communicate. The STA side can see the Beacon of AP, but it can't decode unicast packet from AP. It's like a packet loss.
+AES256 must survive a BB reset because there're many reset situations even without the "echo > ath9k/chanbw" workaround.
+
+Missing CONFIG_MHX_REORDER_CTRL looks like the root cause of RX lock. Porting that from pDDL to pMDDL and then pMDDL looks have no more RX lock issue.
+
+May 29, 2019
+A rx path log when receiving UDP Iperf, AES128:
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.750000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+
+
+
+
+
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.750000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+
+
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.750000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+
+
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+
+
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.750000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.750000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.750000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.750000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.750000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.750000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.750000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.750000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.750000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.750000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.750000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.750000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.760000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+<0>[ 8914.760000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.760000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.760000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.760000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.760000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.760000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.760000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.760000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.760000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.760000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.760000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.760000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.760000] ==MHX100.0(ath9k_tasklet) status=0x00000002
+<0>[ 8914.760000] ==MHX100.1(ath9k_tasklet) receiving...
+<0>[ 8914.760000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.760000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.760000] ==MHX102.0(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.1(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.2(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.3(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.4(ieee80211_rx)
+<0>[ 8914.760000] ==MHX102.5(ieee80211_rx)
+<0>[ 8914.760000] ==MHX103.0(__ieee80211_rx_handle_packet)
+<0>[ 8914.760000] ==MHX103.1(__ieee80211_rx_handle_packet)
+<0>[ 8914.760000] ==MHX103.2(__ieee80211_rx_handle_packet)
+<0>[ 8914.760000] ==MHX104.0(ieee80211_prepare_and_rx_handle) status->rx_flags=0x00000002, consume=1
+<0>[ 8914.760000] ==MHX104.1(ieee80211_prepare_and_rx_handle)
+<0>[ 8914.760000] ==MHX104.2(ieee80211_prepare_and_rx_handle) calling ieee80211_invoke_rx_handlers()......
+<0>[ 8914.760000] ==MHX105.0(ieee80211_invoke_rx_handlers)
+<0>[ 8914.760000] ==MHX105.1(ieee80211_invoke_rx_handlers)
+<0>[ 8914.760000] ==MHX105.2(ieee80211_invoke_rx_handlers)
+<0>[ 8914.760000] ==MHX101.0(ath_rx_tasklet) retval=0x00000000
+<0>[ 8914.770000] ==MHX101.1(ath_rx_tasklet) calling ieee80211_rx()... 
+<0>[ 8914.770000] ==MHX102.0(ieee80211_rx)
+
+Tried the 130-microhard-rxorn-reset-rx-check.patch and 140-microhard-ba-reorder.patch, aes256 still get into stuck on STA: all counters in sys/kernel/debug/ieee80211/phy0/ath9k/interrupt freeze. In sys/kernel/debug/ieee80211/phy0/ath9k/reset the "TX Path Hang" counter jumps every second, which means and verified by kernel message that a REAL reset is happening but still novail. In this case, echo to chanbw doesn't recover it. 
+
+When this situation happens, the inactive timer becomes so high like 5000sec. And the ath9k/queues has lots of pending frames in VO and BE queues.
+
+The current STA side can monitor RSSI level and Beacon loss and after 30sec STA disassociate the AP. But in this situation Beacon is received perfectly but the "inactive time" gets too high. Need to add a monitor to inactive time.
+
+May 28,2019
+pMDDL2550, AES128 and AES256 both have rx stuck issue. 
+ah->config.rx_intr_mitigation = true;	// turning this to false makes the rx lock worse instead of better.
+
+May 27, 2019
+pMDDL2x50(ar9341) periodic reset as rx stuck workaround will cause aes256 encryption fail. So remove the reset and use aes256 TCP iperf still lockup when the signal is not good. So AES256 and Reset can not co-exist. If using reset workaround, ath9k_rx_skb_preprocess() returns -22 and drop the packet. Looking into that, ath9k_cmn_rx_accept() returns a false.
+After a reset by echoing 0xa > chanbw, the debugfs sys/kernel/debug/ieee80211/phy0/ath9k/recv has "POST-DELIM CRC ERR" jumps. The root cause is that :
+	if (rxsp->status11 & AR_PostDelimCRCErr)
+		rxs->rs_flags |= ATH9K_RX_DELIM_CRC_POST;
+The rx descriptor word11 has bit18(post_delim_crc_err) set. 
+
+May 23, 2019
+#define MESH_PATH_EXPIRE (15 * HZ) : defines how long to remove mpath from "iw mpath dump"
+#define MESH_DEFAULT_PLINK_TIMEOUT	15 : defines how long to remove sta from "iw station dump"
+These 2 timeout must be greater than IEEE80211_MESH_HOUSEKEEPING_INTERVAL(10sec) to be accurate.
+
+Jason tested housekeeping=3sec and plinktimeout=pathexpire=5sec worked fine and prompt.
+
+Found a symptom. Only 2 mesh nodes ping. When mpath expires and ACTIVE flag is cleared, ping breaks. But, the metric gets so high for some reasons so that there's no chance to do mesh_path_activate(). So the connection is broken for long time.
+
+May 21, 2019
+/* Destination only */
+#define MP_F_DO	0x1
+When this flag is 0, the N2 in between N1 and N3 replies PREQs from both N1 and N3. This seems cause a lot problems when receiving PREP from both N1 and N3. Set this flag to 1 always seems OK:
+	if (preq_node->flags & PREQ_Q_F_REFRESH)
+		target_flags = MP_F_DO;
+	else
+		// target_flags = MP_F_RF;
+		target_flags = MP_F_DO;
+
+
+May 16, 2019
+Jason runs a unit into a situation very vulnerable to interference. 
+N1 and N2 direct link, if a N3 is powered on and joins in, the N1 can not receive N2's PREP frequently and causes a ping loss.  When the N3 is powered off, the N1 N2 traffic is OK. Looks like the beacon and forwarded HWMP packets from N3 seriously affect the N1-N2 link.
+
+When N1 applies wifi command, this symptom disappeared.
+
+May 15, 2019
+N1-N2-----------N3-N4 topology. Found the N4 doesn't send PREQ in about 20 seconds that causes traffic interrupt. The N4 log:
+
+root@UserDevice:~# cat /proc/kmsg | grep PRE
+<7>[ 1180.150000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1180.150000] wlan0: PREQ is for us
+<7>[ 1180.150000] wlan0: replying to the PREQ
+<7>[ 1180.150000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+
+
+<7>[ 1182.530000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1182.530000] wlan0: PREQ is for us
+<7>[ 1182.530000] wlan0: replying to the PREQ
+<7>[ 1182.530000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+
+
+
+<7>[ 1184.960000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1184.960000] wlan0: PREQ is for us
+<7>[ 1184.960000] wlan0: replying to the PREQ
+<7>[ 1184.960000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+
+
+
+<7>[ 1187.430000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1187.430000] wlan0: PREQ is for us
+<7>[ 1187.430000] wlan0: replying to the PREQ
+<7>[ 1187.430000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+
+
+<7>[ 1189.950000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1189.950000] wlan0: PREQ is for us
+<7>[ 1189.950000] wlan0: replying to the PREQ
+<7>[ 1189.950000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+
+
+<7>[ 1194.460000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1194.460000] wlan0: PREQ is for us
+<7>[ 1194.460000] wlan0: replying to the PREQ
+<7>[ 1194.460000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+
+
+<0>[ 1199.440000] ==MHX7.2(mesh_nexthop_lookup) Qed a PREQ.
+<7>[ 1199.440000] wlan0: sending PREQ to 00:0f:92:fb:6c:21	// about 19sec later the first PREQ is sent. The connection during the 19s is broken. 
+<7>[ 1199.450000] wlan0: received PREP from 00:0f:92:fb:6c:21
+
+
+<0>[ 1204.440000] ==MHX7.2(mesh_nexthop_lookup) Qed a PREQ.
+<7>[ 1204.440000] wlan0: sending PREQ to 00:0f:92:fb:6c:21
+<7>[ 1204.450000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1204.450000] wlan0: PREQ is for us
+<7>[ 1204.450000] wlan0: replying to the PREQ
+<7>[ 1204.450000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+<7>[ 1204.760000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1204.760000] wlan0: PREQ is for us
+<7>[ 1204.760000] wlan0: replying to the PREQ
+<7>[ 1204.760000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+
+
+
+<0>[ 1209.440000] ==MHX7.2(mesh_nexthop_lookup) Qed a PREQ.
+<7>[ 1209.440000] wlan0: sending PREQ to 00:0f:92:fb:6c:21
+<7>[ 1209.450000] wlan0: received PREP from 00:0f:92:fb:6c:21
+
+
+
+<0>[ 1214.440000] ==MHX7.2(mesh_nexthop_lookup) Qed a PREQ.
+<7>[ 1214.450000] wlan0: received PREQ from 00:0f:92:fb:6c:21
+<7>[ 1214.450000] wlan0: PREQ is for us
+<7>[ 1214.450000] wlan0: replying to the PREQ
+<7>[ 1214.450000] wlan0: sending PREP to 00:0f:92:fb:6c:21
+<7>[ 1214.450000] wlan0: sending PREQ to 00:0f:92:fb:6c:21
+<7>[ 1214.460000] wlan0: received PREP from 00:0f:92:fb:6c:21
+
+
+
+<0>[ 1219.440000] ==MHX7.2(mesh_nexthop_lookup) Qed a PREQ.
+<7>[ 1219.440000] wlan0: sending PREQ to 00:0f:92:fb:6c:21
+<7>[ 1219.450000] wlan0: received PREP from 00:0f:92:fb:6c:21
+
+
+============================================================================================
+The second issue is about the PC2 behind N4 ping PC1 behind N1 takes about 40sec to success. The N4 log shows the PREQ is sent to PC1 nistead of N1:
+
+<7>[ 4184.960000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4185.270000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4185.590000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4186.060000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4186.570000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4187.090000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4187.700000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4188.330000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4189.080000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4189.960000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4190.960000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4191.970000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4192.990000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4194.010000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4195.160000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4196.370000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4197.700000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4199.120000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4200.560000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 4202.110000] wlan0: sending PREQ to 00:0e:c6:89:43:83	// the above 18sec PREQ was sent to PC1 MAC, not N1.
+<7>[ 4202.980000] wlan0: sending PREQ to 00:0f:92:fb:6c:21	// until now the PREQ is sent to N1, ping starts to success
+
+<7>[ 4202.980000] wlan0: received PREP from 00:0f:92:fb:6c:21
+<7>[ 4202.990000] wlan0: received PREP from 00:0f:92:fb:6c:21
+<0>[ 4207.960000] ==MHX7.2(mesh_nexthop_lookup) Qed a PREQ.
+<7>[ 4207.960000] wlan0: sending PREQ to 00:0f:92:fb:6c:21
+<7>[ 4207.970000] wlan0: received PREP from 00:0f:92:fb:6c:21
+<0>[ 4212.960000] ==MHX7.2(mesh_nexthop_lookup) Qed a PREQ.
+<7>[ 4212.960000] wlan0: sending PREQ to 00:0f:92:fb:6c:21
+<7>[ 4212.970000] wlan0: received PREP from 00:0f:92:fb:6c:21
+
+
+This is the N1 log:
+<7>[ 3774.610000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3774.610000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3774.610000] wlan0: sending PREQ to 00:0e:c6:89:43:83	// the dest of PREQ is for PC1, not for me!
+<7>[ 3774.610000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3774.610000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3774.610000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3775.250000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3775.250000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3775.250000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3775.710000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3775.710000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3775.710000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3776.220000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3776.220000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3776.220000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3776.740000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3776.740000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3776.740000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3777.350000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3777.350000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3777.350000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3777.980000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3777.980000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3777.980000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3778.730000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3778.730000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3778.730000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3779.610000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3779.610000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3779.610000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3780.610000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3780.610000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3780.610000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3781.620000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3781.620000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3781.620000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3782.640000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3782.640000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3782.640000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3784.810000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3784.810000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3784.810000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3786.020000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3786.020000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3786.020000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3787.350000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3787.350000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3787.350000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3788.770000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3788.770000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3788.770000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3790.210000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3790.210000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3790.210000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+<7>[ 3791.760000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3791.760000] wlan0: forwarding the PREQ from 00:0f:92:fb:6f:88
+<7>[ 3791.760000] wlan0: sending PREQ to 00:0e:c6:89:43:83
+
+<7>[ 3792.630000] wlan0: received PREQ from 00:0f:92:fb:6f:88	// this PREQ dest is for me. ping starts to success.
+<7>[ 3792.630000] wlan0: PREQ is for us
+<7>[ 3792.630000] wlan0: replying to the PREQ
+<7>[ 3792.630000] wlan0: sending PREP to 00:0f:92:fb:6f:88
+<7>[ 3797.610000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3797.610000] wlan0: PREQ is for us
+<7>[ 3797.610000] wlan0: replying to the PREQ
+<7>[ 3797.610000] wlan0: sending PREP to 00:0f:92:fb:6f:88
+<7>[ 3802.610000] wlan0: received PREQ from 00:0f:92:fb:6f:88
+<7>[ 3802.610000] wlan0: PREQ is for us
+<7>[ 3802.610000] wlan0: replying to the PREQ
+<7>[ 3802.610000] wlan0: sending PREP to 00:0f:92:fb:6f:88
+
+
+
+May 14, 2019
+Fine tune metric and weights:
+#define MESH_BITRATE_AVG_WEIGHT 10
+static int signal_avg_percent = 100
+#define MESH_PATH_TIMEOUT      1000 * 5
+#define MESH_PATH_REFRESH_TIME	3000 	// This should be as big as possible but less than MESH_PATH_TIMEOUT. Otherwis ping is very long and sometimes ping packet loss.
+#define MESH_DIAM_TRAVERSAL_TIME 50 * 10 *2
+#define MESH_MIN_DISCOVERY_TIMEOUT (2 * MESH_DIAM_TRAVERSAL_TIME)
++#define MESH_RSSI_THRESHOLD    -85
+result = ((1000000L / sta->bitrate_avg) *  ewma_read(&sta->avg_signal) * signal_avg_percent) / (100 - sta->fail_avg);
+
+
+
+May 10,2019
+
+The MESH action is in IE field : 
+
+21:49:03.946833 [bit 15] 0us BSSID:00:0f:92:fb:6c:21 DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:fb:6c:21 Action: 
+MeshAction HWMP                                                                                        
+        0x0000:  0d01 8225 0000 1fbd 0700 0000 0f92 fb6c  //0d: Category=13; 01:MeshAction=HWMP Mesh Path Selection(0x01) 0x82=130=PREQ;0x25:IE length=37;0x00:HWMP Flags; 0x00:HopCount;
+							  //0x1f:TTL;0x000007bd:PathDicoveryID;OrigAddr;
+        0x0010:  2152 2200 00d0 0300 0000 0000 0001 0100   //0x00002252:OrigSeqNo;0x000003d0:Lifetime;0x00000000:Metric;x01:TargetCount;0x01:PerTargetFlags;TargetAddr;
+        0x0020:  0f92 fb6d 2fea 2000 004c 1004 00c0 0700   //0x000020ea:SeqNo.
+        0x0030:  0000 0089 465d df33 0052 8c                                                           
+
+21:49:03.948664 8865930711us tsft 3.0 Mb/s 2477 MHz 11g/10Mhz -65dB signal [bit 29] 60us BSSID:00:0f:92:fb:6d:2f DA:00:0f:92:fb:6c:21 SA:00:0f:92:fb:6d:2f Action: MeshAction HWMP                            
+        0x0000:  0d01 831f 0000 1f00 0f92 fb6d 2feb 2000  //0d: Category=13; 01:MeshAction=HWMP Mesh Path Selection(0x01) 0x83=131=PREP;0x1f:IE length=31;0x00:HWMP Flags; 0x00:HopCount;
+							  //0x1f:TTL;TargetAddr;
+        0x0010:  00d0 0300 0000 0000 0000 0f92 fb6c 2152  //OrigAddr.
+        0x0020:  2200 00e2 c360 7a
+
+May 9, 2019
+The Mesh node can't receive PREP issue:
+Only 2 mesh nodes, the monitor interface can see the other peer's PREP packet but in function ieee80211_iface_work():
+	while ((skb = skb_dequeue(&sdata->skb_queue))) {
+		struct ieee80211_mgmt *mgmt = (void *)skb->data;
+can not get the management (type)--->action (category WLAN_CATEGORY_MESH_ACTION = 13 ) frame. Trace back to function ieee80211_rx_h_mgmt_check():
+	if (ieee80211_drop_unencrypted_mgmt(rx))
+		return RX_DROP_UNUSABLE;
+always droped by the flag WLAN_STA_MFP and I guess dropped by this piece of code:
+		/*
+		 * When using MFP, Action frames are not allowed prior to
+		 * having configured keys.
+		 */
+		if (unlikely(ieee80211_is_action(fc) && !rx->key &&
+			     ieee80211_is_robust_mgmt_frame(rx->skb)))
+			return -EACCES;
+
+In authsae : meshd-nl80211.c, remove the flag NL80211_STA_FLAG_MFP can receive PREP. 
+
+May 8,2019
+Ubuntu1804 sshd service:
+1. Check status : sudo systemctl status ssh.service
+2. Restart : sudo systemctl restart ssh.service
+3. To disable the SSH service to start during system boot run: sudo systemctl disable ssh
+jli@DENG-JEFFL:~$ sudo systemctl disable ssh
+Synchronizing state of ssh.service with SysV service script with /lib/systemd/systemd-sysv-install.
+Executing: /lib/systemd/systemd-sysv-install disable ssh
+Removed /etc/systemd/system/sshd.service.
+4. To enable it again type: sudo systemctl enable ssh
+jli@DENG-JEFFL:~$ sudo systemctl enable ssh
+Synchronizing state of ssh.service with SysV service script with /lib/systemd/systemd-sysv-install.
+Executing: /lib/systemd/systemd-sysv-install enable ssh
+Created symlink /etc/systemd/system/sshd.service → /lib/systemd/system/ssh.service.
+
+
+====================================================
+PREP is lost before ieee80211_iface_work(). Only mesh beacon is seen in this function. Only after (skb->pkt_type == IEEE80211_SDATA_QUEUE_AGG_START) is received, peer starts to receive PREP frame. Looks like the aggregation affect the PREP receiving. PREQ is broadcast so it is not affected.
+
+May 6, 2019
+$(STAGING_DIR_HOST)/bin/mkmylofw -B $(2) -i 0x0F92:0x6721:0x0001:0x0000 -s $(4) -R 255.255 \ : -R255.255 means to create dual image and upgrade 2 images in the flas.
+
+When use shell statements in a Makefile, some tricks:
+
+	if [ "$(CONFIG_PACKAGE_kmod-crypto-mhx)" = "y" ]; then \
+		if [ "$(CONFIG_PACKAGE_uboot-ar9341-alpha)" = "y" ]; then \
+			$(KDIR)/u-boot-ar9344-mhs/u-boot-1.1.4/tools/ubparams; \
+			mv params $(KDIR_TMP); \	// Each statement must have a ';'
+			$(STAGING_DIR_HOST)/bin/mkmylofw -B $(2) -i 0x0F92:0x6721:0x0002:0x000A -s $(4) \
+				-p0x0:0x80000:al::u-boot:$(KDIR)/u-boot-ar9341-alpha/u-boot-1.1.4/u-boot.bin \
+				-p0x80000:0x40000:al::u-boot-env:$(KDIR_TMP)/params \
+				-p0x100000:0x200000:al:0x80060000:kernel:$(KDIR_TMP)/vmlinux-$(2).uImage \
+				-p0x300000:0x18c0000:::rootfs:$(KDIR)/root.$(1) \
+				$(BIN_DIR)/$(2)-factory-$(3)-AES256$(VERSION)$(REVISION).bin; \
+		fi; \			// 1) Must have a ';'. 2)No blank lines after it are allowed.
+		$(STAGING_DIR_HOST)/bin/mkmylofw -B $(2) -i 0x0F92:0x6721:0x0002:0x000A -s $(4) \
+
+Mesh metric improvement:
+1. Reduce MESH_BITRATE_AVG_WEIGHT : the Minstrel probe frames vibrate the tx rates. So "rate" is very dynamic. sta->bitrate_avg is in 1Kbps. Default MESH_BITRATE_AVG_WEIGHT=40 reduced to 10.
+2. Increase the weight of sta->avg_signal : low signal node should be removed faster. Default signal_avg_percent=5 increased to 50. sdata->u.mesh.mshcfg.rssi_threshold is signed. ewma_read(&sta->avg_signal) returns PLUS rssi. 
+3. Increase the weight of sta->fail_avg : this is a percentage. When calculated with "sta->bitrate_avg"[in 1Kbps, e.g, 65000 for 65Mbps], PER is too small[65000 compared with 8(%)].
+May 3, 2019
+aes256 option can be seen in both menuconfig and kernel_menuconfig in pDDL. But in pMDDL, crypto-mhx only shows in kernel_menuconfig. To show it in menuconfig, need to add :
+define KernelPackage/crypto-mhx
+  TITLE:=MHX crypto cipher CryptoAPI module
+  KCONFIG:=CONFIG_CRYPTO_MHX
+  FILES:=$(LINUX_DIR)/crypto/crypto_mhx.ko
+  AUTOLOAD:=$(call AutoLoad,09,crypto_mhx)
+  $(call AddDepends/crypto)
+endef
+
+$(eval $(call KernelPackage,crypto-mhx))
+
+In the target/linux/modules/crypto.mk file. AND, in make menuconfig, make sure select kmod-crypto-mhx by "*" instead of "M". "M" doesn't generate crypto_mhx.ko. 
+
+May 2, 2019
+About the iw station dump:
+inactive time:  590 ms //NL80211_STA_INFO_INACTIVE_TIME
+rx bytes:       35355305 //NL80211_STA_INFO_RX_BYTES
+rx packets:     299092 //NL80211_STA_INFO_RX_PACKETS
+tx bytes:       30347855 //NL80211_STA_INFO_TX_BYTES
+tx packets:     237437 //NL80211_STA_INFO_TX_PACKETS
+tx retries:     8361 //NL80211_STA_INFO_TX_RETRIES
+tx failed:      574 //NL80211_STA_INFO_TX_FAILED<---sinfo->tx_failed=sta->tx_retry_failed<---acked = !!(info->flags & IEEE80211_TX_STAT_ACK), if !acked ++. 
+
+In mesh metric calculation, PER comes from sta->fail_avg. Looks like existing need to improve : fail_avt increase weight; bitrate_avg decrease weight because the RC has random rates; signal_avg_percent can keep as is. And potentially path_switch_threshold (10, 50, 90).
+
+May 1, 2019
+/**
+ * enum nl80211_plink_state - state of a mesh peer link finite state machine
+ *
+ * @NL80211_PLINK_LISTEN: initial state, considered the implicit
+ *	state of non existant mesh peer links
+ * @NL80211_PLINK_OPN_SNT: mesh plink open frame has been sent to
+ *	this mesh peer
+ * @NL80211_PLINK_OPN_RCVD: mesh plink open frame has been received
+ *	from this mesh peer
+ * @NL80211_PLINK_CNF_RCVD: mesh plink confirm frame has been
+ *	received from this mesh peer
+ * @NL80211_PLINK_ESTAB: mesh peer link is established
+ * @NL80211_PLINK_HOLDING: mesh peer link is being closed or cancelled
+ * @NL80211_PLINK_BLOCKED: all frames transmitted from this mesh
+ *	plink are discarded
+ * @NUM_NL80211_PLINK_STATES: number of peer link states
+ * @MAX_NL80211_PLINK_STATES: highest numerical value of plink states
+ */
+enum nl80211_plink_state {
+	NL80211_PLINK_LISTEN,
+	NL80211_PLINK_OPN_SNT,
+	NL80211_PLINK_OPN_RCVD,
+	NL80211_PLINK_CNF_RCVD,
+	NL80211_PLINK_ESTAB,
+	NL80211_PLINK_HOLDING,
+	NL80211_PLINK_BLOCKED,
+
+	/* keep last */
+	NUM_NL80211_PLINK_STATES,
+	MAX_NL80211_PLINK_STATES = NUM_NL80211_PLINK_STATES - 1
+};
+
+ath9k power set by ar9003_set_txdesc(), word 11[TPC_0]:
+	ACCESS_ONCE(ads->ctl11) = (i->pkt_len & AR_FrameLen)
+		| (i->flags & ATH9K_TXDESC_VMF ? AR_VirtMoreFrag : 0)
+		| SM(i->txpower, AR_XmitPower)
+But the printk shows i->txpower is always 0x3f no matter what the txpower is set.
+0xb8108004 : Control ACK/CTS rate.
+0xb81080e8 : Control ACK/CTS power. In pMDDL2450 it is defaulted to 0x3f3f3f3f, maximum ACK power. By test on a monitor interface check ACK power, this register doesn't affect.
+
+Apr 30, 3019
+In open mesh mode : rssi_threshold_check() only checks when mesh is in NL80211_PLINK_LISTEN status. In LISTEN state, the IW command still dumps this station. Than means the STA is alread created in the STA list. 
+
+Once the mesh status turns into ESTAB, rssi_threshold_check() will not be called. Even if the radio contition deteriorates to -9XdBm, the IW still dumps the mesh plink as ESTAB status. Looks like after married, the peers will never separate. 
+
+Apr 29, 2019
+In a pMDDL2450 board. In function void ath_start_rfkill_poll(struct ath_softc *sc)
+{
+	struct ath_hw *ah = sc->sc_ah;
+
+	if (ah->caps.hw_caps & ATH9K_HW_CAP_RFSILENT)
+		wiphy_rfkill_start_polling(sc->hw->wiphy);
+}
+
+Print ==MHX(ath_start_rfkill_poll) ah=830fc010, ah->caps.hw_caps=000809fd. 
+enum ath9k_hw_caps {
+        ATH9K_HW_CAP_HT                         = BIT(0),
+        ATH9K_HW_CAP_RFSILENT                   = BIT(1),
+        ATH9K_HW_CAP_AUTOSLEEP                  = BIT(2),
+        ATH9K_HW_CAP_4KB_SPLITTRANS             = BIT(3),
+        ATH9K_HW_CAP_EDMA                       = BIT(4),
+        ATH9K_HW_CAP_RAC_SUPPORTED              = BIT(5),
+        ATH9K_HW_CAP_LDPC                       = BIT(6),
+        ATH9K_HW_CAP_FASTCLOCK                  = BIT(7),
+        ATH9K_HW_CAP_SGI_20                     = BIT(8),
+        ATH9K_HW_CAP_ANT_DIV_COMB               = BIT(10),
+        ATH9K_HW_CAP_2GHZ                       = BIT(11),
+        ATH9K_HW_CAP_5GHZ                       = BIT(12),
+        ATH9K_HW_CAP_APM                        = BIT(13),
+#ifdef CPTCFG_ATH9K_PCOEM
+        ATH9K_HW_CAP_RTT                        = BIT(14),
+        ATH9K_HW_CAP_MCI                        = BIT(15),
+        ATH9K_HW_WOW_DEVICE_CAPABLE             = BIT(16),
+        ATH9K_HW_CAP_BT_ANT_DIV                 = BIT(17),
+#else
+        ATH9K_HW_CAP_RTT                        = 0,
+        ATH9K_HW_CAP_MCI                        = 0,
+        ATH9K_HW_WOW_DEVICE_CAPABLE             = 0,
+        ATH9K_HW_CAP_BT_ANT_DIV                 = 0,
+#endif
+        ATH9K_HW_CAP_DFS                        = BIT(18),
+        ATH9K_HW_CAP_PAPRD                      = BIT(19),
+        ATH9K_HW_CAP_FCC_BAND_SWITCH            = BIT(20),
+};
+
+==================================================================
+Use pMDDL2450-Japan code in a pMDDL2450 radio. During boot-up the iw command has data bus error. Use a correctly calibrated Japan radio no errors. Maybe the eeprom9003.c code read un-matching channels from EEPROM. 
+
+Apr 25, 2019
+pMDDL mesh : A symptom is seen --- the iw station dump sees a -89dBm signal with a station, but the ping wouldn't work. Increas the power level until the ping works, then the mesh path works too. This means some signal levels are cheating. A reasonable signal level reading doesn't guarantee a good data traffic. In this case, the HWMP protocol may choose a station as the next hop, but in reality the ARP packet can't pass. 
+
+The point is to remove those fake nodes. Maybe set up a higher RSSI threshold below which a node can't be a path candidate. Or Increase the PER weight in metric calculation. 
+
+Apr 23, 2019
+pMDDL2458 FAN control uses LED exported as a bit. But :
+1. The pca953x driver saves output register values to memory. When it outputs bits, it uses the memory stored values instead of reading back the current output status.
+2. The RS485 driver directly accesses the pca953x chip by using i2c functions. After the RS485 drivers modifies the pca953x, the Linux pca953x io expander driver doesn't know that. When the IO driver outputs a value, that value doesn't reflect the latest change made by RS485 driver and will overwrite that, which destroys the RS485 functions.
+==========================================================================================
+Sometimes, the iw station dump only dumps the MAC address of a STA. When this happens, the ARP req/resp can not pass between this pair. Not sure if HWMP packets passes well.
+
+Apr 22, 2019
+Current pMDDL frequency list:
+#if defined(CONFIG_MHX_PMDDL2350)
+/* 2.3G band: band [2300, 2399] */
+#define START_FREQ_STEPONE_2G   2300
+#define END_FREQ_STEPONE_2G     2399
+#elif defined(CONFIG_MHX_PMDDL2550)
+/* 2.5G band: band [2490, 2579] */
+#define START_FREQ_STEPONE_2G   2490
+#define END_FREQ_STEPONE_2G     2579
+#else
+/* 2.4G band: band [2390, 2490], low-15MHz/high-10MHz extra bands for internal test */
+#define START_FREQ_STEPONE_2G   2390
+#define END_FREQ_STEPONE_2G     2489
+#endif
+#define MAX_NUM_CH_STEPONE_2G   (END_FREQ_STEPONE_2G - START_FREQ_STEPONE_2G + 1)
+
+/* 5G band: [5000, 5845], total channel number = 846, step=1MHz */
+#define START_FREQ_STEPONE_5G   5000
+#define END_FREQ_STEPONE_5G     5845
+#define MAX_NUM_CH_STEPONE_5G   ((END_FREQ_STEPONE_5G - START_FREQ_STEPONE_5G) + 1)
+
+Apr 18, 2019
+Secure mesh authsae sees a symptom : iw wlan0 station dump can not dump a nearby node with very good signal. some sae.conf parameters:
+1. giveup : the number of errors and/or state-machine resyncronizations
+	allowed before the conversation is abandoned. Default
+	is 5. Used by "if (peer->sync > giveup_threshold) ..." 
+
+if (strncmp(buf, "giveup", strlen("giveup")) == 0) {
+            config->giveup_threshold = atoi(ptr);
+        }	// max=0xffffffff. 32 bit in ath9k.
+
+2. blacklist: how long to ignore peers which fail authentication.
+	Default is 30 seconds.
+3. retrans: the amount of seconds to wait before retransmitting.
+	Default is 3.
+4 thresh: the number of open connections allowed before
+	anti-clogging tokens are demanded. Default is 5.
+
+Apr 17, 2019
+In ssh, "reset" command clears ALL consol history while "clear" only clears current screen.
+
+Apr 16, 2019
+Chip supported bands are defined in EEPROM, in ath9k_init_softc():
+		ah->disable_2ghz = pdata->disable_2ghz;
+		ah->disable_5ghz = pdata->disable_5ghz;	// read from EEPROM
+To distinguish ar9341 and ar9344:
+In ar9341:
+root@UserDevice:~# mhx -reg get 0xb8060090
+Register 0xb8060090 has value 0x00010123
+In ar9344:
+root@UserDevice:~# mhx -reg get 0xb8060090
+Register 0xb8060090 has value 0x00002122
+
+============================================This can not distinguish:
+	ath_dbg(common, ANI, "ver %d.%d opmode %u chan %d Mhz\n",
+		ah->hw_version.macVersion,
+		ah->hw_version.macRev,
+		ah->opmode,
+		chan->channel);
+In ar9341:
+[ 3841.560000] ath: phy0: ah->misc_mode 0x10000004
+[ 3841.890000] ath: phy0: ver 768.0 opmode 2 chan 2477 Mhz	// macVersion = 0x300
+
+In ar9344:
+[ 1928.680000] ath: phy0: ah->misc_mode 0x10000004
+[ 1928.930000] ath: phy0: ver 768.0 opmode 2 chan 2477 Mhz
+
+Apr 15, 2019
+Compile the github : simonwunderlich/FFT_eval project.
+1. git clone https://github.com/simonwunderlich/FFT_eval.git. Cd to FFT_eval
+2. gcc -O2 -Wall -pedantic -c -o fft_eval.o fft_eval.c -I /usr/include/SDL/
+3. gcc -lSDL -lSDL_ttf -o fft_eval fft_eval.o -L /usr/share/doc/libsdl1.2-dev/  -lSDL -lm -lSDL_ttf
+
+
 Apr 11, 2019
 iw "$ifname" set bitrates legacy-2.4 6 9 12 18 24 36 ht-mcs-2.4 "$rate" : This can not fix the rate. It behaves like a ceiling rate instead of FIXED rate.
 echo "$rate" > /sys/kernel/debug/ieee80211/"$phy"/rc/fixed_rate_idx : This really fixes the tx rate.
@@ -6426,24 +7455,24 @@ Every mpath has a timer "new_mpath->timer.function = mesh_path_timer". In mesh_q
 											// mesh_path_flush_pending() to discard mpath->frame_queue cause packet drop.
 So:
 IEEE80211_MESH_HOUSEKEEPING_INTERVAL = 60 sec : Time to do MP plink expire and mpath expire. Every 60 sec.
-MESH_PATH_EXPIRE = 600 seconds : After (mpath->exp_time + MESH_PATH_EXPIRE), delete this mpath.
+MESH_PATH_EXPIRE = 600 seconds : After (mpath->exp_time + MESH_PATH_EXPIRE), delete this mpath. (changed to 90 sec)
 mesh_plink_timeout = 1800 seconds : After 1800sec since  sta->last_rx from this MP, disassociate this MP peer link.
 mesh_min_discovery_timeout = 100 milliseconds : Should be bigger than SnedingPREQ--->ReceivingPREP time. This will be doubled every other retry automatically. Defined by .min_discovery_timeout = MESH_MIN_DISCOVERY_TIMEOUT.
 mesh_hwmp_max_preq_retries = 4 : Max PREQ can be sent. After each try, mpath->discovery_timeout *= 2. After max tries, the mpath->frame_queue[] pending data are discarded. Defined by .dot11MeshHWMPmaxPREQretries = MESH_MAX_PREQ_RETRIES.
 mesh_hwmp_preq_min_interval = 10 TUs (mS) : After sending a PREQ, wait at least 10mS to send another. Defined by .dot11MeshHWMPpreqMinInterval = MESH_PREQ_MIN_INT.
-mesh_hwmp_active_path_timeout = 5000 TUs (ms) : lifetime = default_lifetime(sdata). This is the lifetime in PREQ IE. Just like TTL. The Lifetime field is coded as an unsigned integer and is set to the time for which mesh STAs receiving the PREQ/P consider the forwarding information to be valid. The path lifetime defines an upper bound for the path duration; whenever it expires, the path is reset and a new path discover procedure is initiated. It goes to orig_lifetime = PREQ_IE_LIFETIME(hwmp_ie)--->exp_time = TU_TO_EXP_TIME(orig_lifetime). Defined by .dot11MeshHWMPactivePathTimeout = MESH_PATH_TIMEOUT.
+mesh_hwmp_active_path_timeout = 5000 TUs (ms) : lifetime = default_lifetime(sdata). This is the lifetime in PREQ IE. Just like TTL. The Lifetime field is coded as an unsigned integer and is set to the time for which mesh STAs receiving the PREQ/P consider the forwarding information to be valid. The path lifetime defines an upper bound for the path duration; whenever it expires, the path is reset and a new path discover procedure is initiated. It goes to orig_lifetime = PREQ_IE_LIFETIME(hwmp_ie)--->exp_time = TU_TO_EXP_TIME(orig_lifetime). Defined by .dot11MeshHWMPactivePathTimeout = MESH_PATH_TIMEOUT (1000 ms).
 MESH_PATH_REFRESH_TIME = 1000 ms :  In mesh_nexthop_lookup(): 	if (time_after(jiffies,   mpath->exp_time - msecs_to_jiffies(sdata->u.mesh.mshcfg.path_refresh_time)) && ether_addr_equal(sdata->vif.addr, hdr->addr4) &&
 	    !(mpath->flags & MESH_PATH_RESOLVING) &&
 	    !(mpath->flags & MESH_PATH_FIXED))
 		mesh_queue_preq(mpath, PREQ_Q_F_START | PREQ_Q_F_REFRESH);		// Queue PREP to send. 1000mS before the expire time to start a PREP.
-This is defined by .path_refresh_time = MESH_PATH_REFRESH_TIME.
+This is defined by .path_refresh_time = MESH_PATH_REFRESH_TIME (chnged to 500 ms).
 mesh_hwmp_net_diameter_traversal_time = 50 TUs : Specifies the estimate of the interval of time (in TUs) that it takes for an HWMP element to propagate across the mesh BSS. This is about mpath SN (Local Mesh Sequence No.). IN 							 hwmp_preq_frame_process() and mesh_path_start_discovery():
 						if (time_after(jiffies, ifmsh->last_sn_update +	net_traversal_jiffies(sdata)) ||	// mesh_hwmp_net_diameter_traversal_time=50mS
 		    					time_before(jiffies, ifmsh->last_sn_update)) {
 								++ifmsh->sn;
 								ifmsh->last_sn_update = jiffies;
 						}	
-This is defined by .dot11MeshHWMPnetDiameterTraversalTime = MESH_DIAM_TRAVERSAL_TIME.		
+This is defined by .dot11MeshHWMPnetDiameterTraversalTime = MESH_DIAM_TRAVERSAL_TIME(500mS).		
 
 ==========================================================================================================================
 
@@ -33520,3 +34549,5 @@ OpenWRT R20722 in trunk has the AR8316 driver ready. 2 patches don't work well a
 Oct 15, 2012
 Start the VLAN study. VIP2.0 has 1 port but has VLAN functionality on app level. VIP4G has 3 ports and should have the driver level VLAN functionality.
 Read AR8316 DS.
+
+
