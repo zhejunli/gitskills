@@ -1,3 +1,743 @@
+Sept 27, 2019
+In Ubnt16.04 install a TightVNC, in Ubnt18.04 install Remmina VNC viewer. The connection is ok but the X-Window desktop on the viwer side is different with the TightVNC serverside. It functions somehow well except some weird things. The port uses 5901 and VNC protocol. 
+
+Actually Ubnt has already had its own common service for this application (similar not exactly the same). In Ubnt16.04, start the built-in Gnome "Desktop Sharing" service. On Ubnt18.04 client side, install a Ubnt Gnome "Remote Desktop Viewer". Then can connect to the Ubnt16.04 "Desktop Sharing". This software uses port 5900 and VNC protocol. Remmina can connect to the server too. 
+
+In Ubnt18.04, you can go Settings ---> Sharing to turn on/off the "Screen Sharing" to turn on/off the "Desktop Sharing" server.
+
+But NOTE, this "Desktop Sharing"-"Remote Desktop Viewer" solution is different with the TightVNC-Remmina solution. The 1st one, when the client side control the keyboard and mouse, these operations all show up in the server screen, because this service shares the Desktop of server side with the remote viewer side. If use the TightVNC, which uses 5901 port, the viewer side has an totally independent X-Window and the server side can not see the operations.
+
+Sept 24, 2019
+Besides web100/web10g, M-Lab has another speed test server : https://github.com/m-lab/ndt-server.
+
+Should use this command to expose more ports to host machine:
+sudo docker run --network=bridge                \
+	   --publish 443:4443		\
+	   --publish 3010:3010		\
+	   --publish 3001:3001		\
+	   --publish 3002:3002		\
+	   --publish 9090:9990		\
+           --volume `pwd`/certs:/certs:ro  \
+           --volume `pwd`/datadir:/datadir \
+           --read-only                     \
+           --user `id -u`:`id -g`          \
+           --cap-drop=all                  \
+	   --rm				\
+           ndt-server                      \
+           -cert ./certs/cert.pem           \
+           -key ./certs/key.pem             \
+           -datadir ./datadir              \
+	   -ndt7_addr :4443
+
+Sept 23, 2019
+Use the patch estats-nl-0.3-3.4.patch. Still has the TOTAL_NUM_VARS undefined error. But this error comes from web100-util.c but we are actually interested in the web10g. So just ignore this error and compiles successfully.
+
+fakewww and w10gsrv must be run at the SAME TIME. Use the client to visit 127.0.0.1:7123 and start test. But looks Chrome doesn't work and only Firefox works.
+
+Sept 19, 2019
+https://github.com/redsox2002/ndt : Network Diagnostic Tools in Ubuntu14.04. In Ubuntu16.04(Kernel 4.13) the Linux3.4.1 kernel can not be compiled by the fakeroot make-kpkg --initrd --apend-to-version=-web10g kernel_image kernel_headers command. Install a Ubuntu14.04 VMware machine it compiles successfully according to https://github.com/redsox2002/ndt.
+
+During bootup, hold "Shift" key to show the Grup menu and choose 3.4.1 kernel. After booting into the web10g kernel activate the estats modules by typing 'sudo modprobe tcp_estats_nl'.
+
+Sept 16, 219
+To use FTRACE, not only make kernel_menuconfig to turn on Kernel hacking ---> Tracers, but also, in make menuconfig, turn on Global build settings ---> Kernel build options ---> Compile the kernel with tracing support. If need more tracers, configure the kernel and add them in the kernel hacking:
+
+root@UserDevice:~# cat sys/kernel/debug/tracing/available_tracers 
+function_graph wakeup_dl wakeup_rt wakeup irqsoff function nop
+
+
+For function graph:
+#!/bin/sh
+ 
+dir=/sys/kernel/debug/tracing
+ 
+#### sysctl kernel.ftrace_enabled=1
+echo function_graph > ${dir}/current_tracer
+echo 1 > ${dir}/tracing_on
+sleep 1
+echo 0 > ${dir}/tracing_on
+less ${dir}/trace
+
+trace:
+	This file holds the output of the trace in a human
+	readable format (described below). Note, tracing is temporarily
+	disabled while this file is being read (opened). // so you can NOT see real-time trace!!!
+
+trace_pipe:
+	The output is the same as the "trace" file but this
+	file is meant to be streamed with live tracing.
+	Reads from this file will block until new data is
+	retrieved.  Unlike the "trace" file, this file is a
+	consumer. This means reading from this file causes
+	sequential reads to display more current data. Once
+	data is read from this file, it is consumed, and
+	will not be read again with a sequential read. The
+	"trace" file is static, and if the tracer is not
+	adding more data, it will display the same
+	information every time it is read. This file will not
+	disable tracing while being read.
+
+trace_marker:
+	This is a very useful file for synchronizing user space
+	with events happening in the kernel. Writing strings into
+	this file will be written into the ftrace buffer. // so the user space info is wwriten into trace file.
+
+trace_clock:
+	Whenever an event is recorded into the ring buffer, a
+	"timestamp" is added. This stamp comes from a specified
+	clock. By default, ftrace uses the "local" clock. This
+	clock is very fast and strictly per cpu, but on some
+	systems it may not be monotonic with respect to other
+	CPUs. In other words, the local clocks may not be in sync
+	with local clocks on other CPUs. global: This clock is in sync with all CPUs but may
+	  	  be a bit slower than the local clock.
+
+As function tracing can induce a much larger latency, but without
+seeing what happens within the latency it is hard to know what
+caused it. There is a middle ground, and that is with enabling
+events.
+
+Note, not all sections are traced. They may be prevented by either
+a notrace, or blocked another way and all inline functions are not
+traced. Check the "available_filter_functions" file to see what functions
+can be traced. In G5 :
+root@UserDevice:~# cat sys/kernel/debug/tracing/available_filter_functions | uniq | wc -l
+20807	// totally 20k functions can be traced.
+root@UserDevice:~# cat sys/kernel/debug/tracing/available_events | uniq | wc -l
+1350	// 1350 events 
+
+A section called "__mcount_loc" is created that holds
+references to all the mcount/fentry call sites in the .text section.
+The recordmcount program re-links this section back into the
+original object. The final linking stage of the kernel will add all these
+references into a single table.
+
+On boot up, before SMP is initialized, the dynamic ftrace code
+scans this table and updates all the locations into nops. It
+also records the locations, which are added to the
+available_filter_functions list.  Modules are processed as they
+are loaded and before they are executed.  When a module is
+unloaded, it also removes its functions from the ftrace function
+list. This is automatic in the module unload code, and the
+module author does not need to worry about it.
+
+One special side-effect to the recording of the functions being
+traced is that we can now selectively choose which functions we
+wish to trace and which ones we want the mcount calls to remain
+as nops.
+
+
+ftrace_enabled
+--------------
+
+Note, the proc sysctl ftrace_enable is a big on/off switch for the
+function tracer. By default it is enabled (when function tracing is
+enabled in the kernel). If it is disabled, all function tracing is
+disabled. This includes not only the function tracers for ftrace, but
+also for any other uses (perf, kprobes, stack tracing, profiling, etc).
+
+Please disable this with care.
+
+This can be disable (and enabled) with:
+
+  sysctl kernel.ftrace_enabled=0
+  sysctl kernel.ftrace_enabled=1
+
+ or
+
+  echo 0 > /proc/sys/kernel/ftrace_enabled
+  echo 1 > /proc/sys/kernel/ftrace_enabled
+
+Sept 13, 2019
+Disable the external watchdog:
+/etc/init.d/alldone:    ############## /bin/mhx -wdt 750
+And :
+root@UserDevice:~# cat etc/init.d/softirq-wdt 
+#!/bin/sh /etc/rc.common
+#
+# Copyright (C) 2019 Microhard Systems Inc.
+#
+# launches watchdog for monitoring stalled softirq (RCU in particular)
+
+START=00
+STOP=00
+[ "$IPKG_INSTROOT" ] && return
+#############boot() { /bin/mhx -wdt-dryrun 750; }
+boot() { :; }
+
+How to disable the admin password check:
+In /usr/lib/webif/webif.sh, disable this:
+## admin passwork check 
+return // directly return here. 
+
+Sept 11, 2019
+OpenWrTARGET_LDFLAGS := -L$(STAGING_DIR)/usr/lib -Lbuild_dir/target-mipsel_24kc_musl/gettext-0.19.6/gettext-runtime/intl/.libs/ $(TARGET_LDFLAGS)  // add -L option to ld
+LIBS += -lintl	// add -l option to ld
+t buildroot:
+
+Build oprofile package in G5:
+1. make kernel_menuconfig : General Setup->Profiling support and Oprofile System Profiling set to 'M'. Then rebuild kernel by make target/linux/clean|compile. Note, this rebuild of kernel doesn't really build oprofile.o and any source code to .o. 
+
+2. Modify package/kernel/linux/modules/other.mk, add
+
+ $(eval $(call KernelPackage,mmc))
+ 
++define KernelPackage/oprofile
++  SUBMENU:=$(OTHER_MENU)
++  TITLE:=OProfile profiling support
++  KCONFIG:=CONFIG_OPROFILE
++  FILES:=$(LINUX_DIR)/arch/$(LINUX_KARCH)/oprofile/oprofile.ko
++  DEPENDS:=@KERNEL_PROFILING
++endef
++
++define KernelPackage/oprofile/description
++  Kernel module for support for oprofile system profiling.
++endef
++
++$(eval $(call KernelPackage,oprofile))
++
+
+Looks like this part can generate oprofile.o and .ko.
+
+3. make menuconfig : make sure binutil is selected. Oprofile needs these tools in it like nm, as, objdump, etc. Usually this is already selected. 
+3.1 Go to  Global build settings > Kernel build options, select "Compile the kernel with profiling enabled"
+3.2 Go to Kernel modules > Other modules, select "kmod-oprofile "
+3.3 Go to Development, select oprofile and oprofile-utils. Now using 0.9.7.
+
+4. When compiling, it complains:
+In file included from opagent.c:68:0:
+/home/jli/project/work/g5/7621-new-master/staging_dir/target-mipsel_24kc_musl/usr/include/bfd.h:35:2: error: #error config.h must be included before this header
+ #error config.h must be included before this header
+
+So edit this file, defile PACKAGE macro:
+
+// MHXJL Sept 11, 2019 to make oprofile
+#ifndef PACKAGE
+#define PACKAGE "oProfile0.9.7"
+#endif
+
+#if !defined PACKAGE && !defined PACKAGE_VERSION
+#error config.h must be included before this header
+#endif
+
+5. Build success and binaries are installed:
+
+jli@DENG-JEFFL:~/project/work/g5/7621-new-master$ ll build_dir/target-mipsel_24kc_musl/root-ramips-BulletplusAC/usr/bin/opr*
+-rwxr-xr-x 1 jli jli 258587 Sep 11 16:00 build_dir/target-mipsel_24kc_musl/root-ramips-BulletplusAC/usr/bin/opreport*
+-rwxr-xr-x 1 jli jli  58131 Sep 11 16:00 build_dir/target-mipsel_24kc_musl/root-ramips-BulletplusAC/usr/bin/oprofiled*
+jli@DENG-JEFFL:~/project/work/g5/7621-new-master$ ll build_dir/target-mipsel_24kc_musl/root-ramips-BulletplusAC/lib/modules/4.14.137/oprofile.ko 
+-rw-r--r-- 1 jli jli 43236 Sep 11 16:00 build_dir/target-mipsel_24kc_musl/root-ramips-BulletplusAC/lib/modules/4.14.137/oprofile.ko
+jli@DENG-JEFFL:~/project/work/g5/7621-new-master$ 
+
+6. But couldn't run on the G5 unit:
+root@UserDevice:~# opcontrol --start
+Using default event: INSTRUCTIONS:100000:0:1:1
+Using 2.6+ OProfile kernel interface.
+Failed to open profile device: Out of memory
+Couldn't start oprofiled.
+Check the log file "/var/lib/oprofile/samples/oprofiled.log" and kernel syslog
+
+Maybe this is oProfile0.9.7 is too old. Should try 1.3.0 that was released 2018.
+
+7. Try oprofile-1.3.0. It doesn't need to modify the ./staging_dir/target-mipsel_24kc_musl/usr/include/bfd.h file to add PACKAGE definition. And it runs on G5.
+
+root@UserDevice:~# operf --session-dir /tmp --separate-cpu --system-wide -V record
+run for a while and the ^+C
+root@UserDevice:~# opreport --session-dir /tmp	// show results.
+
+How to profile the kernel:
+1. On host side : scp build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/vmlinux root@192.168.168.3:/tmp/.
+2. Run on the target:
+
+root@UserDevice:~# operf --system-wide --vmlinux=/tmp/vmlinux --session-dir /tmp -V debug
+==MHX 1.1(__get_cpu_type)
+==MHX 1.2(__get_cpu_type)machine=mips
+==MHX 2.0(_get_mips_cpu_type)cpu_model=MIPS 1004Kc V2.15
+==MHX 2.1(_get_mips_cpu_type) op_name=mips/1004K
+Using samples dir /tmp/samples
+==MHX 1.1(__get_cpu_type)
+==MHX 1.2(__get_cpu_type)machine=mips
+==MHX 2.0(_get_mips_cpu_type)cpu_model=MIPS 1004Kc V2.15
+==MHX 2.1(_get_mips_cpu_type) op_name=mips/1004K
+Final event code is 1
+Forking read pid
+operf: Press Ctl-c or 'kill -SIGINT 3881' to stop profiling
+going into waitpid on operf record process 3887
+Successfully read header info for sample data 
+Converting operf data to oprofile sample data format
+sample type is 43
+operf: Profiler started
+^Cin _handle_sigint
+Read 1 of sample data pipe returned with Interrupted system call
+in op_sig_stop
+Caught ctrl-C. Killing operf-record process . . .
+operf recording finished.
+Total bytes recorded from perf events: 125408
+operf-record process returned OK
+operf_read: Total bytes received from operf_record process: 125192
+Calling _do_jitdump_convert
+start time/end time is 1568253087/1568253107
+opjitconv: Non-fatal error trying to find JIT dump files in /tmp/.oprofile/jitdump/: No such file or 
+directory
+opjitconv: Ending with rc = 1. This code is usually OK, but can be useful for debugging purposes.
+JIT dump processing complete.
+operf-read process returned OK
+
+Profiling done.
+root@UserDevice:~# opreport --session-dir /tmp --symbols
+warning: /nf_conntrack_ipv4 could not be found.
+CPU: MIPS 74K, speed 876 MHz (estimated)
+Counted INSTRUCTIONS events (1-0 Instructions graduated) with a unit mask of 0x00 (No unit mask) coun
+t 100000
+samples  %        image name               app name                 symbol name
+49       44.1441  dropbear                 dropbear                 /usr/sbin/dropbear
+12       10.8108  libc.so                  operf                    /lib/libc.so
+4         3.6036  busybox                  mcmscript                /bin/busybox
+3         2.7027  libc.so                  dropbear                 /lib/libc.so
+3         2.7027  vmlinux                  operf                    mutex_unlock
+2         1.8018  libstdc++.so.6.0.21      operf                    /usr/lib/libstdc++.so.6.0.21
+2         1.8018  operf                    operf                    /usr/bin/operf
+2         1.8018  vmlinux                  dropbear                 _raw_spin_unlock_irqrestore
+2         1.8018  vmlinux                  operf                    _raw_spin_unlock_irqrestore
+1         0.9009  nf_conntrack_ipv4        dropbear                 /nf_conntrack_ipv4
+1         0.9009  vmlinux                  busybox                  __alloc_fd
+1         0.9009  vmlinux                  busybox                  _raw_spin_lock
+1         0.9009  vmlinux                  busybox                  copy_fd_bitmaps
+1         0.9009  vmlinux                  busybox                  filemap_map_pages
+1         0.9009  vmlinux                  busybox                  smp_call_function_many
+1         0.9009  vmlinux                  busybox                  tty_write
+1         0.9009  vmlinux                  busybox                  unmap_page_range
+1         0.9009  vmlinux                  cut                      __slab_free.isra.17
+1         0.9009  vmlinux                  cut                      _raw_spin_unlock_irqrestore
+1         0.9009  vmlinux                  cut                      handle_mm_fault
+1         0.9009  vmlinux                  dropbear                 __dev_queue_xmit
+1         0.9009  vmlinux                  dropbear                 dev_hard_start_xmit
+1         0.9009  vmlinux                  dropbear                 do_sys_open
+1         0.9009  vmlinux                  dropbear                 sch_direct_xmit
+1         0.9009  vmlinux                  dropbear                 task_work_run
+1         0.9009  vmlinux                  grep                     blast_icache32
+1         0.9009  vmlinux                  grep                     filemap_map_pages
+1         0.9009  vmlinux                  grep                     perf_event_comm_output
+1         0.9009  vmlinux                  hostapd                  ktime_get_ts64
+1         0.9009  vmlinux                  hostapd                  poll_select_set_timeout
+1         0.9009  vmlinux                  hostapd                  unix_dgram_poll
+1         0.9009  vmlinux                  logread                  alloc_set_pte
+1         0.9009  vmlinux                  operf                    _raw_spin_lock
+1         0.9009  vmlinux                  operf                    clear_page
+1         0.9009  vmlinux                  operf                    number
+1         0.9009  vmlinux                  operf                    path_openat
+1         0.9009  vmlinux                  operf                    task_work_add
+1         0.9009  vmlinux                  operf                    terminate_walk
+1         0.9009  vmlinux                  operf                    vfs_read
+1         0.9009  vmlinux                  operf                    vsnprintf
+1         0.9009  vmlinux                  u8:1                     kfree
+root@UserDevice:~# 
+
+
+NOTE: looks like the oprofile.ko is NOT needed!!!.
+
+
+Sept 9, 2019
+perf can run on G5 but failed:
+root@UserDevice:~# perf top
+perf_event_open(..., PERF_FLAG_FD_CLOEXEC) failed with unexpected error 89 (Function not implemented)
+perf_event_open(..., 0) failed unexpectedly with error 89 (Function not implemented)
+Error:
+The sys_perf_event_open() syscall returned with 89 (Function not implemented) for event (cycles).
+/bin/dmesg may provide additional information.
+No CONFIG_PERF_EVENTS=y kernel support configured?
+root@UserDevice:~# 
+
+Kernel already turned CONFIG_PERF_EVENTS=y. Don't know why. Build with kernel 4.9 same errors.
+
+Sept 5, 2019
+New kernel branch mt7621_pkg_br_k4_14_137 [origin/mt7621_pkg_br_k4_14_137] has been branched and developed for about 3 weeks. During this time master has a lot of commits. Now it's time to grab maste's change to the mt7621_pkg_br_k4_14_137. 
+jli@DENG-JEFFL:~/project/work/g5/7621-pure-branch/package$ git merge origin/master   // curent branch is updated to origin/mt7621_pkg_br_k4_14_137.
+
+This will fetch master's change to overwrite local files. After the command, some files are green, meaning successfully updated by origin/master. Some are red, meanig conflict. Manually modify the red files, keep the low part (master part) to solve conflicts. Local branch changes are kept not damaged by the master. That is because the change only HAPPENED in the branch and master side those specific files are not modified by master commit. For these files, eventhouth they're still different, the master side doesn't change them so they only keep the local branch files. This is what we wanted.
+
+If you want to give up the merge, use git merge --abort
+
+Sept 4, 2019
+The new kernel-mac80211 doesn't use the CFG80211_INTERNAL_REGDB mechanism (net/wireless/db.txt as the database) in the master branch(kernel v4.9, mac80211-2017-01-31) is obsoleted. So when use "iw phy0 info" we see all 5G band have "no IR", meaning can not Initiate Radiation (transmission).
+
+The new one uses package/firmware/wireless-regdb/ package to generate lib/firmware/regulatory.db as the database. "iw reg get/set" command can change regulatory domain dynamically. 
+
+CRDA is another option for regulatory domain management.
+
+Aug 28, 2019
+
+// Kernel sysinfo.h
+jli@DENG-JEFFL:~/project/work/g5/7621-pure-branch$ md5sum build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/user_headers/include/linux/sysinfo.h
+6f8882c542ddb6603b06a4eafcc17015  build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/user_headers/include/linux/sysinfo.h
+
+jli@DENG-JEFFL:~/project/work/g5/7621-pure-branch$ md5sum build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/include/uapi/linux/sysinfo.h
+6f8882c542ddb6603b06a4eafcc17015  build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/include/uapi/linux/sysinfo.h
+
+// toolchain sysinfo.h
+jli@DENG-JEFFL:~/project/work/g5/7621-pure-branch$ md5sum /home/jli/project/work/g5/7621-pure-branch/staging_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/include/linux/sysinfo.h
+6f8882c542ddb6603b06a4eafcc17015  /home/jli/project/work/g5/7621-pure-branch/staging_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/include/linux/sysinfo.h  // this is copied from kernel???
+
+jli@DENG-JEFFL:~/project/work/g5/7621-pure-branch$ ll staging_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/include/sys/sysinfo.h
+-rw-r--r-- 1 jli jli 634 Aug 28 10:32 staging_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/include/sys/sysinfo.h	// this is musl's own file.
+
+==================================================================================================================================================================
+Toolchain will unar kernel to ./build_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/linux-4.14.137/ when building toolchain. At this time, the kernel build has not started yet in directory build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621. The kernel patches apply as well during the toolchain build. 
+
+
+Aug 27,2019
+Try GCC7 (old is GCC5) on G5 and GCC7 defaultly enabled a feature -Wimplicit-fallthrough. To disable that compilation feature in specific package, use :
+
+--- a/package/libs/libjson-c/Makefile
++++ b/package/libs/libjson-c/Makefile
+@@ -27,7 +27,7 @@ PKG_MAINTAINER:=Felix Fietkau <nbd at nbd.name>
+ 
+ include $(INCLUDE_DIR)/package.mk
+ 
+-TARGET_CFLAGS += $(FPIC)
++TARGET_CFLAGS += $(FPIC) -Wno-implicit-fallthrough
+
+But the GCC7 doesn't help the redefination error for netifd:
+
+/home/jli/project/work/g5/mtd7621-4-14-137/staging_dir/toolchain-mipsel_24kc_gcc-7.2.0_musl/include/linux/if.h:192:8: error: redefinition of 'struct ifmap'
+ struct ifmap {
+        ^~~~~
+/home/jli/project/work/g5/mtd7621-4-14-137/staging_dir/toolchain-mipsel_24kc_gcc-7.2.0_musl/include/net/if.h:64:8: note: originally defined here
+ struct ifmap {
+        ^~~~~
+
+TO compile netifd, need to change vi /home/jli/project/work/g5/mtd7621-4-14-137/staging_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/include/linux/if.h  file and remove all __UAPI_DEF_* defines.
+
+
+Aug 26, 2019
+Some header files shared between Kernel and toolchain:
+[Jeff@DENG0080-2 mt7621-4-14-137]$ find build_dir/ -name vtpm_proxy.h | xargs ls -al
+-rw-r--r-- 1 Jeff Jeff 1734 Aug  6 11:05 build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/include/uapi/linux/vtpm_proxy.h
+-rw-r--r-- 1 Jeff Jeff 1719 Aug 26 11:52 build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/user_headers/include/linux/vtpm_proxy.h
+-rw-r--r-- 1 Jeff Jeff 1734 Aug  6 11:05 build_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/linux-4.14.137/include/uapi/linux/vtpm_proxy.h
+-rw-r--r-- 1 Jeff Jeff 1719 Aug 26 11:41 build_dir/toolchain-mipsel_24kc_gcc-5.5.0_musl/linux-dev/include/linux/vtpm_proxy.h
+
+
+Aug 22, 2019
+Interrupt handler:
+No guarantee in which address space the system will be in when the interrupt occurs : can't transfer data to and from user space.
+Interrupt handler executin is manged by CPU, not the scheduler. Handlers can't run actions that may sleep, because there is nothing to resume their execution. In particular, need to allocate memory with GFP_ATOMIC. 
+Interrupt handlers are run with all interrupts disabled on the local CPU. Therefore, they have to complete their job quickly enough, to avoiding blocking interrupts for too long.
+
+Aug 21, 2019
+With new kernel4.14.137, make menuconfig,  Kernel modules > Wireless Drivers doesn't show kmod-ath10k option. The mac80211 package is good for sure.
+
+Run make kernel_menuconfig, Bus options (PCI, PCMCIA, EISA, ISA, TC), enable support for PCI controller. Recompile kernel, and rm -rf tmp to let it recollect package information. When make menuconfig, the Kernel modules > Wireless Drivers shows up kmod-ath10k option now. Looks like the make menuconfig will automatically probe and collect information from make kernel_menuconfig and decide what packages can be show in the make menuconfig.
+
+Aug 19, 2019
+Prepare a clean branch mt7621_br_k4_14_137 for kernel upgrade cooperation.
+1. mmc : deselect Kernel modules > Other modules > kmod-sdhci and sdhci-mt7620.
+2. mac80211 : deselect Kernel modules > Wireless Drivers > kmod-ath and kmod-mac80211 and kmod-cfg80211
+3. soipkmd, soip : deselected for soip_listen.c, need to comment sock->ops->accept(sock, new_sock, O_NONBLOCK); line. deselect Kernel modules > Other modules > kmod-soipkm. 
+4. xtables-addons : upgraded to master branch package. 
+5. strongswan : no change. OK
+6. package/libs/libnl-tiny/src/include/netlink/genl/family.h. GENL_ID_GENERATE always defined to 0.
+7. iptables : use 1.6.2 from openwrt-18.06 branch. And 
+scp build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/iptables-1.6.2/extensions/libxt_FLOWOFFLOAD.so root@192.168.168.1://usr/lib/iptables/. 
+scp build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/net/netfilter/nf_flow_table*.ko root@192.168.168.1://lib/modules/4.14.137/. 
+scp build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/net/netfilter/xt_FLOWOFFLOAD.ko  root@192.168.168.1://lib/modules/4.14.137/.
+On target unit, run: 
+root@UserDevice:~# cat ins.sh                                                                                 
+#!/bin/sh                                                                                                     
+                                                                                                              
+for i in $(ls lib/modules/4.14.137/*.ko); do                                                                  
+modprobe $i                                                                                                   
+done  
+       
+And
+iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment "!fw3" -i br-wan2 -j FLOWOFFLOAD --hw
+
+Aug 16, 2019
+Tried to turn the tool "perf" but looks like the MIPS cpu doesn't support perf:
+jli@DENG-JEFFL:~/project/work/g5/mt7621_k4_9$ find  build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/arch/ -name perf
+build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/arch/powerpc/perf
+build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/arch/metag/kernel/perf
+
+Try another tool oprofile:
+jli@DENG-JEFFL:~/project/work/g5/mt7621_k4_9$ cat package/devel/oprofile/Makefile 
+#
+# Copyright (C) 2009-2010 OpenWrt.org
+#
+# This is free software, licensed under the GNU General Public License v2.
+# See /LICENSE for more information.
+#
+
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=oprofile
+PKG_VERSION:=0.9.7
+PKG_RELEASE:=1
+
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=@SF/oprofile/
+PKG_MD5SUM:=8b5d1d9b65f84420bcc3234777ad3be3
+
+Still doen't compile complaining "configure: error: bfd library not found".
+
+Aug 15, 2019
+Compile iptables1.8.3 with KernelV4.14.137, G5 environment. Always complains the "struct ethhdr" redefined in both kernel and musl libc library. Just for hacking:
+vi /home/jli/project/work/g5/mt7621_k4_9/build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.137/user_headers/include/linux/if_ether.h , remove its "struct ethhdr " definition and the iptables1.8.2 package compiles successfully. 
+
+Test still have the flow_offload_add() kernel oops. And this is caused by some .ko is not inserted. Use this bash to insert all .ko modules solved this problem:. Using iptables1.8.3.
+root@UserDevice:~# cat ins.sh 
+#!/bin/sh
+for i in $(ls lib/modules/4.14.137/*.ko); do
+modprobe $i
+done
+root@UserDevice:~# 
+
+Without offload : iperf TCP (100M NIC, PC1--->G5-1), the G5-2 as a gateway has:
+CPU:  0.2% usr  0.7% sys  0.0% nic 65.4% idle  0.0% io  0.0% irq 33.5% sirq
+With iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment "!fw3" -j FLOWOFFLOAD (sw offload)
+CPU:  0.0% usr  0.4% sys  0.0% nic 81.3% idle  0.0% io  0.0% irq 18.2% sirq
+With iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment "!fw3" -j FLOWOFFLOAD --hw (hw offload)
+CPU:  0.0% usr  0.2% sys  0.0% nic 99.7% idle  0.0% io  0.0% irq  0.0% sirq
+
+When test UDP iperf, (100M NIC, push 200Mbps, PC1--->G5-1), the G5-2 as a gateway has:
+Without offload
+CPU:  0.0% usr  0.0% sys  0.0% nic 85.6% idle  0.0% io  0.0% irq 14.3% sirq
+With iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment "!fw3" -j FLOWOFFLOAD (sw offload)
+CPU:  0.0% usr  0.4% sys  0.0% nic 89.8% idle  0.0% io  0.0% irq  9.7% sirq
+With iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment "!fw3" -j FLOWOFFLOAD --hw (hw offload)
+CPU:  0.7% usr  0.2% sys  0.0% nic 89.4% idle  0.0% io  0.0% irq  9.5% sirq. Sometimes 99.7% idle and 0.0% sirq not stable.
+
+
+Aug 14, 2019
+Linux4.14.63 has the mt7621 eth driver in target/linux/ramips/files-4.14/drivers/net/ethernet/mtk/
+Linux4.14.137 has it in target/linux/ramips/files-4.14/drivers/net/ethernet/mediatek/. Why the dir is changed?!!!
+
+Linux4.14.137 has a patch target/linux/ramips/patches-4.14/0043-spi-add-mt7621-support.patch. This patch doesn't work for G5 board and SPI driver failure. Have to use Linux4.14.63's target/linux/ramips/patches-4.14/0043-spi-add-mt7621-support.patch. Really don't understand why it is not backward compatible.
+
+Aug 13, 2019
+Use v4.14.137 kernel in G5 and .dtb and vmlinux are all generated successfully. But the patch-dtb fails and complains "DTB marker not found". But v4.14.63 works fine. Check v4.14.63 has this patch that v4.14.137 doesn't have:
+jli@DENG-JEFFL:~/project/openwrt/openwrt-18.06/openwrt$ find target/linux/ -type f | xargs grep OWRTDTB
+target/linux/ramips/patches-4.14/0100-prom_fixes.patch:+	.ascii  "OWRTDTB:"
+target/linux/generic/pending-4.14/332-arc-add-OWRTDTB-section.patch:Subject: openwrt: arc - add OWRTDTB section
+target/linux/generic/pending-4.14/332-arc-add-OWRTDTB-section.patch:""patch-dtb" searches for ASCII "OWRTDTB:" strign and copies external
+
+This places a place holder in vmlinux binary. And the external dtb will be appended to this table. Applied this patch from .63 to .137 and compile successes. Thie raises a question : the v4.14.137 comes from 
+
+Aug 12, 2019
+package/network/utils/nftables/ is nftables user land config app. nft app has dependency on package/libs/libnftnl. 
+
+Aug 9, 2019
+Use -j FLOWOFFLOAD in G5-v4.14:
+
+scp build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.63/net/netfilter/xt_FLOWOFFLOAD.ko root@192.168.168.1:/lib/modules/4.14.63/.
+
+scp build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/linux-4.14.63/net/netfilter/nf_flow_table*.ko root@192.168.168.1:/lib/modules/4.14.63/.
+nf_flow_table_hw.ko                                                                                     100% 5872   159.9KB/s   00:00    
+nf_flow_table_inet.ko                                                                                   100% 2908   141.2KB/s   00:00    
+nf_flow_table.ko                                                                                        100%   21KB 121.9KB/s   00:00 
+scp build_dir/target-mipsel_24kc_musl/linux-ramips_mt7621/iptables-1.6.2/ipkg-install/usr/lib/iptables/libxt_FLOWOFFLOAD.so root@192.168.168.1://usr/lib/iptables/.
+
+iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment "!fw3" -j FLOWOFFLOAD --hw
+
+Aug 8, 2019
+
+G5-1(br-lan=10.10.12.100) ---------- G5-2.br-wan1(10.10.12.1) & G5-2.br-lan(192.168.168.1) ---PC1(192.168.168.101).
+
+PC1 : route ADD 10.10.12.0 MASK 255.255.255.0 192.168.168.1 METRIC 3. 
+G5-2 : Add Port Forwarding rules so that the iperf TCP/UDP can initiate from G5-1. src=WAN1,ExtPort=5001,InternalIP=192.168.168.101,InternalPort=5001.
+
+Download Iperf 
+1. TCP t/p. G5-1 : iperf -c 10.10.12.1 -i 2 -t 60. TCP traffic pushed to G5-2.br-wan1, and then port forwarded to PC1. PC1 runs iperf -s. T/P=453Mbps
+
+2. UDP t/p : PC1 runs iperf -s -u.
+G5-1 : iperf -c 10.10.12.1 -i 2 -t 60 -u -b 800M. T/P=252Mbps.
+G5-1 : iperf -c 10.10.12.1 -i 2 -t 60 -u -b 500M. T/P=253Mbps.
+G5-1 : iperf -c 10.10.12.1 -i 2 -t 60 -u -b 300M. T/P=252Mbps.
+
+Upload Iperf:
+1. TCP t/p. G5-1 runs iperf -s
+PC1: ipeprf.exe -c 10.10.12.100 -i 2 -t 60. T/P=320Mbps.
+
+2. UDP t/p : G5-1 runs iperf -s -u
+PC1: ipeprf.exe -c 10.10.12.100 -i 2 -t 60 -u -b 800M. On G5-1 T/P=230Mbps.
+PC1: ipeprf.exe -c 10.10.12.100 -i 2 -t 60 -u -b 500M. On G5-1 T/P=260Mbps.
+PC1: ipeprf.exe -c 10.10.12.100 -i 2 -t 60 -u -b 300M. On G5-1 T/P=250Mbps.
+
+
+Aug 7, 2019
+G5 is upgraded to v4.14 kernel from v4.9. Use this command line to overwrite the bootarg:
+root@UserDevice:~# cat proc/cmdline 
+console=ttyS0,115200 root=31:6 rootfstype=squashfs,jffs2 noinitrd init=/sbin/init mtdparts=spi0.0:512k(u-boot)ro,64k(u-boot-env),192k(pro-zone),64k(u-boot-env-bak),192k(unused),2M(kernel),25344k(rootfs),4352k(mhs-data),2M(kernel-bak),25344k(rootfs-bak),5376k(NVM-zone)
+[NOTE:] Can NOT have any white space in the mtdparts part!!!Otherwise this cmdline can not be parsed.
+
+
+Aug 2, 2019
+mt7621 HNAT investigation. G5 uses Linux4.9. Compared with OpenWrt18.06(Linux4.14), 
+1. net/netfilter/ : OpenWrt18.06 has nf_flow_table_hw.c, nft_flow_offload.c, xt_FLOWOFFLOAD.c, etc. These look like the glue to H/W NAT.
+2. drivers/net/ethernet/mtk/ : OpenWrt18.06 has mtk_offload.c to control Eth registers.
+
+The first try is to upgrade G5's current 4.9.58 kernel to 4.14.63 kernel. Need to change and add some files below:
+
+jli@DENG-JEFFL:~/project/work/g5/mt7621_k4_9$ git diff
+diff --git a/include/kernel-version.mk b/include/kernel-version.mk
+index 7d62edc..211863e 100644
+--- a/include/kernel-version.mk
++++ b/include/kernel-version.mk
+@@ -6,11 +6,13 @@ LINUX_VERSION-3.18 = .71
+ LINUX_VERSION-4.4 = .93
+ LINUX_VERSION-4.9 = .58
+ #LINUX_VERSION-4.9 = .53
++LINUX_VERSION-4.14 = .63
+ 
+ LINUX_KERNEL_HASH-3.18.71 = 5abc9778ad44ce02ed6c8ab52ece8a21c6d20d21f6ed8a19287b4a38a50c1240
+ LINUX_KERNEL_HASH-4.4.93 = ed349314f16e78a6571b5f8884f6452782aef6c26b81bcc7ccdac44ecd917c36
+ LINUX_KERNEL_HASH-4.9.58 = 748f12a28689644b6a9102c67f8fa7938ca73823a949ba6f65024aecf2f221a7
+ #LINUX_KERNEL_HASH-4.9.53 = 32915a33bb0b993b779257748f89f31418992edba53acbe1160cb0f8ef3cb324
++LINUX_KERNEL_HASH-4.14.63 = cd2e52f0e7ba861afa91cf487b2f45e5174115870f256a1d65996647b7bcc6d3
+ 
+ ifdef KERNEL_PATCHVER
+   LINUX_VERSION:=$(KERNEL_PATCHVER)$(strip $(LINUX_VERSION-$(KERNEL_PATCHVER)))
+diff --git a/target/linux/ramips/Makefile b/target/linux/ramips/Makefile
+index 9bcffc1..887b590 100644
+--- a/target/linux/ramips/Makefile
++++ b/target/linux/ramips/Makefile
+@@ -13,7 +13,7 @@ SUBTARGETS:=mt7620 mt7621 mt76x8 rt288x rt305x rt3883
+ FEATURES:=squashfs gpio
+ MAINTAINER:=John Crispin <john@phrozen.org>
+ 
+-KERNEL_PATCHVER:=4.9
++KERNEL_PATCHVER:=4.14
+ 
+ define Target/Description
+        Build firmware images for Ralink RT288x/RT3xxx based boards.
+jli@DENG-JEFFL:~/project/work/g5/mt7621_k4_9$ git status 
+On branch mt7621_hnat
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   include/kernel-version.mk
+	modified:   target/linux/ramips/Makefile
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	target/linux/generic/backport-4.14/
+	target/linux/generic/config-4.14
+	target/linux/generic/hack-4.14/
+	target/linux/generic/pending-4.14/
+	target/linux/ramips/files-4.14/
+	target/linux/ramips/mt7621/config-4.14
+	target/linux/ramips/patches-4.14/
+
+
+FYI, I've backported the upstream flow offload code to Linux 4.14 in my staging tree. I've also written an extra patch that integrates it with iptables (so no dependency on nftables anymore).
+You can test it by building my staging tree, enabling kmod-ipt-flow, and adding a rule to the FORWARD chain with -j FLOWOFFLOAD
+
+Test the v4.14 kernel in G5 and it doesn't bootup:
+
+[    2.361249] 4 CPUs re-calibrate udelay(lpj = 2924544)
+[    2.367950] Crashlog allocated RAM at address 0x3f00000
+[    2.373349] workingset: timestamp_bits=30 max_order=17 bucket_order=0
+[    2.388201] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    2.394046] jffs2: version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red H
+at, Inc.
+[    2.406318] random: fast init done
+[    2.411159] bounce: pool size: 64 pages
+[    2.415031] io scheduler noop registered
+[    2.418855] io scheduler deadline registered (default)
+[    2.425397] Serial: 8250/16550 driver, 3 ports, IRQ sharing disabled
+[    2.433428] console [ttyS0] disabled
+[    2.436983] 1e000c00.uartlite: ttyS0 at MMIO 0x1e000c00 (irq = 17, base_baud = 3125000) is a 16550A
+[    0.000000] Linux version 4.14.63 (jli@DENG-JEFFL) (gcc version 5.5.0 (LEDE GCC 5.5.0 unknown)) #0 
+SMP Fri Jul 26 21:37:04 2019
+[    0.000000] SoC Type: MediaTek MT7621 ver:1 eco:3
+[    0.000000] bootconsole [early0] enabled
+[    0.000000] CPU0 revision is: 0001992f (MIPS 1004Kc)
+[    0.000000] MIPS: machine is BulletAC
+[    0.000000] Determined physical RAM map:
+[    0.000000]  memory: 1c000000 @ 00000000 (usable)
+[    0.000000]  memory: 04000000 @ 20000000 (usable)
+[    0.000000] Initrd not found or empty - disabling initrd
+
+It rebooted 3 times and the 2nd bank kicked in and booted from previous v4.9. 
+
+Jul 31, 2019
+PC1(168.100) ------ pMDDL2450(AP) ~~~~~~ pMDDL2450(STA,USB device mode) ---USB cable--- PC2(168.200). Do the multicast traffic T/P test.
+
+PC1 ---> PC2
+iperf -c 224.0.0.100 -u -b 10m -t 60 -i 2 : PC2 gets T/P=5.2Mbps. 
+iperf -c 224.0.0.100 -u -b 100m -t 60 -i 2 : Overdrive the link, PC2 gets T/P=5.2Mbps the same. 
+
+PC2 ---> PC1
+iperf -c 224.0.0.100 -u -b 20m -t 60 -i 2 : PC1 gets T/P=19Mbps. 
+iperf -c 224.0.0.100 -u -b 200m -t 60 -i 2 : Over load the link PC1 still gets T/P=17Mbps. 
+
+
+Jul 30, 2019
+In pMDDL:
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/hwflags 
+0x9042b46
+RX_INCLUDES_FCS
+HOST_BCAST_PS_BUFFERING
+SIGNAL_DBM
+SPECTRUM_MGMT	// IEEE80211_HW_SPECTRUM_MGMT is set. But WLAN_ACTION_SPCT_TPC_REQ and WLAN_ACTION_SPCT_TPC_RPRT are never used. So the dynamic TPC functionality is not implemented.
+AMPDU_AGGREGATION
+PS_NULLFUNC_STACK
+MFP_CAPABLE
+REPORTS_TX_ACK_STATUS
+
+
+
+Jul 2, 2019
+On 3Pi board :
+root@UserDevice:~# i2cdetect -y 0                                                                    
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f                                                  
+00:          -- -- -- -- -- -- -- -- -- -- -- -- --                                                  
+10: -- -- -- -- -- -- -- -- UU UU -- -- -- -- -- --                                                  
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --                                                  
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --                                                  
+40: -- -- -- -- -- -- -- -- UU -- -- -- -- -- -- --                                                  
+50: 50 51 -- -- -- -- -- -- -- -- -- -- -- -- -- --                                                  
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --                                                  
+70: -- UU -- -- -- -- -- --                               
+
+
+Jun 28， 2019
+有多种bottom half的机制，例如：softirq、tasklet、workqueue或是直接创建一个kernel thread来执行bottom half（这在旧的kernel驱动中常见，现在，一个理智的driver厂商是不会这么做的）。本文主要讨论softirq机制。由于tasklet是基于softirq的，一个 tasket, 就象一个内核定时器, 在一个"softirq"的上下文中执行(以原子模式), 在使能硬件中断时执行异步任务的一个内核机制。一个 tasklet 可能和其他 tasklet 并发, 但是对它自己是严格地串行的 -- 同样的 tasklet 从不同时运行在超过一个处理器上。softirq不能动态分配，都是静态定义的。内核已经定义了若干种softirq number。workqueue运行在process context，而softirq和tasklet运行在interrupt context。
+
+Jun 25, 2019
+指针和引用的区别？
+1. 指针是一个变量，只不过这个变量存储的是一个地址，指向内存的一个存储单元；而引用仅是个别名；
+2. 引用使用时无需解引用(*)，指针需要解引用；
+3. 引用只能在定义时被初始化一次，之后不可变；指针可变；
+4. 引用没有 const，指针有 const；
+5. 引用不能为空，指针可以为空；
+6. “sizeof 引用”得到的是所指向的变量(对象)的大小，而“sizeof 指针”得到的是指针本身的大小；
+7. 指针和引用的自增(++)运算意义不一样；
+8. 指针可以有多级，但是引用只能是一级（int **p；合法 而 int &&a是不合法的）
+9.从内存分配上看：程序为指针变量分配内存区域，而引用不需要分配内存区域。
+
+问：new和malloc的区别？
+1、malloc与free是C++/C语言的标准库函数，new/delete是C++的运算符。它们都可用于申请动态内存和释放内存。
+2、对于非内部数据类型的对象而言，光用maloc/free无法满足动态对象的要求。对象在创建的同时要自动执行构造函数，对象在消亡之前要自动执行析构函数。
+3、由于malloc/free是库函数而不是运算符，不在编译器控制权限之内，不能够把执行构造函数和析构函数的任务强加于malloc/free。因此C++语言需要一个能完成动态内存分配和初始化工作的运算符new，以一个能完成清理与释放内存工作的运算符delete。注意new/delete不是库函数。
+4、C++程序经常要调用C函数，而C程序只能用malloc/free管理动态内存。
+5、new可以认为是malloc加构造函数的执行。new出来的指针是直接带类型信息的。而malloc返回的都是void指针。
+
+问：解释C++中静态函数和静态变量？
+(1)类静态数据成员在编译时创建并初始化：在该类的任何对象建立之前就存在，不属于任何对象，而非静态类成员变量则是属于对象所有的。类静态数据成员只有一个拷贝，为所有此类的对象所共享。
+(2)类静态成员函数属于整个类，不属于某个对象，由该类所有对象共享。
+1、static 成员变量实现了同类对象间信息共享。
+2、static 成员类外存储，求类大小，并不包含在内。
+3、static 成员是命名空间属于类的全局变量，存储在 data 区的rw段。
+4、static 成员只能类外初始化。
+5、可以通过类名访问（无对象生成时亦可），也可以通过对象访问。
+
+一个线程安全的函数可以同时被多个线程调用，即便是这些调用使用了共享数据。因为该共享数据的所有实例都被序列化了。
+一个可重入的函数也可以同时被多个线程调用，但是只能是在每个调用使用自己的数据时。
+在同一个作用域内，可以声明几个功能类似的同名函数，但是这些同名函数的形式参数（指参数的个数、类型或者顺序）必须不同。您不能仅通过返回类型的不同来重载函数。
+对于像 int/char/long/int*/struct 等等简单数据类型，由于对象没有 destructor，所以用 delete 和 delete [] 是一样的！但是如果是C++ 对象数组就不同了！
+
 JUn 20, 2019
 QT Creator compile a android armv7(MotoG3) Qt sample project, link error:
 
@@ -6329,7 +7069,7 @@ Test frame frequency #define MESH_PATH_STATS_UPDATE_INTERVAL can not be shorter 
 
 Mar 21, 2018
 11C.9.8.5 Repeated attempts at path discovery
-Repeated attempts by a mesh STA at path discovery towards a single target shall be limited to dot11MeshHWMPmaxPREQretries. The minimum waiting time for the repeated attempt at path discovery to a single target is 2 X dot11MeshHWMPnetDiameterTraversalTime. For each attempt, the HWMP sequence number is incremented and a new Path Discovery ID is chosen.
+Repeated attempts by a40mesh STA at path discovery towards a single target shall be limited to dot11MeshHWMPmaxPREQretries. The minimum waiting time for the repeated attempt at path discovery to a single target is 2 X dot11MeshHWMPnetDiameterTraversalTime. For each attempt, the HWMP sequence number is incremented and a new Path Discovery ID is chosen.
 
 11C.9.8.6 Limiting the rate of HWMP sequence number increments
 In order to improve path stability (and further reduce overhead), a mesh STA may use the same originator HWMP sequence number for a certain time interval. In this case, the originator HWMP SN shall be incremented only after at least dot11MeshHWMPnetDiameterTraversalTime has elapsed since the previous increment. This mechanism prevents mesh STAs from changing the path frequently to the originator mesh STA every time the originator mesh STA sends a burst of PREQs within a very short time. This element of the protocol allows an originator mesh STA to immediately initiate on-demand path discovery to a new target without affecting recently refreshed paths to the originator in other mesh STAs.
