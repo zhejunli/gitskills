@@ -1,3 +1,1007 @@
+Nov 1, 2019
+pMDDL2450 on a generic dev board has 3 different opps with MESH mode:
+1. This comes from mhx-bsp.ko. Because it doesn't have GPIO expander.
+[   81.460000] CPU 0 Unable to handle kernel paging request at virtual address 00000044, epc == 80189504, ra == 8018969c
+[   81.460000] Oops[#1]:
+[   81.460000] CPU: 0 PID: 1282 Comm: mhx Not tainted 3.10.36 #1
+[   81.460000] task: 83b00860 ti: 82900000 task.ti: 82900000
+[   81.460000] $ 0   : 00000000 7f8ac55c 00000000 0000000c
+[   81.460000] $ 4   : 803b72d4 7f8ac55c 00000000 0000001e
+[   81.460000] $ 8   : 00000000 82901e74 00000000 fffffff8
+[   81.460000] $12   : 00000005 77289448 00000000 00400b8b
+[   81.460000] $16   : 00000000 7f8ac550 83b3e2b0 40044753
+[   81.460000] $20   : 00000003 00000000 00000000 00000000
+[   81.460000] $24   : 00000000 77256680                  
+[   81.460000] $28   : 82900000 82901e40 7f8fbd90 8018969c
+[   81.460000] Hi    : 00000369
+[   81.460000] Lo    : 00001be5
+[   81.460000] epc   : 80189504 gpio_chip_hwgpio+0x4/0x20
+[   81.460000]     Not tainted
+[   81.460000] ra    : 8018969c gpiod_get_value_cansleep+0x1c/0x54
+[   81.460000] Status: 1100f403 KERNEL EXL IE 
+[   81.460000] Cause : 00800008
+[   81.460000] BadVA : 00000044
+[   81.460000] PrId  : 0001974c (MIPS 74Kc)
+[   81.460000] Modules linked in: ath9k ath9k_common qcserial ppp_async option iptable_nat ath9k_hw ath
+ usb_wwan qmi_wwan ppp_generic pl2303 nf_nat_ipv4 nf_conntrack_netlink nf_conntrack_ipv4 mac80211 ipt_M
+ASQUERADE cfg80211 cdc_ncm xt_time xt_state xt_recent xt_quota xt_pkttype xt_physdev xt_owner xt_nat xt
+_multiport xt_mark xt_mac xt_limit xt_iprange xt_iface xt_helper xt_esp xt_conntrack xt_connmark xt_con
+nlimit xt_connbytes xt_condition xt_comment xt_addrtype xt_TCPMSS xt_REDIRECT xt_RAWNAT xt_NETMAP xt_LO
+G xt_IPMARK xt_CT usbserial usbnet slhc nfnetlink nf_nat_irc nf_nat_ftp nf_nat nf_defrag_ipv4 nf_conntr
+ack_irc nf_conntrack_ftp nf_conntrack iptable_raw iptable_mangle iptable_filter ipt_ah ipt_REJECT ip_ta
+bles ebt_among ebt_802_3 crc16 crc_ccitt compat_xtables compat cdc_wdm cdc_acm arptable_filter arpt_man
+gle arp_tables act_skbedit act_mirred em_u32 cls_u32 cls_tcindex cls_flow cls_route cls_fw sch_hfsc sch
+_ingress configfs arc4 crypto_blkcipher soip sd_mod scsi_mod gpio_button_hotplug mhx_bsp
+[   81.460000] Process mhx (pid: 1282, threadinfo=82900000, task=83b00860, tls=77290440)
+[   81.460000] Stack : 8287a000 ffffff9c 7f8fbde0 00000000 40044753 83af78c4 7f8fbd90 800f0eac
+[   81.460000]    772509a0 80070df4 0000001e 00000000 00000000 0000016a 83af3970 82905e60
+[   81.460000]    7f8ac550 800f2694 8287a015 00000049 00000000 834a9f68 83b3e2b0 800f3284
+[   81.460000]    00000000 00000000 00000000 00000000 00000000 800fb898 834f5b28 83bc42b0
+[   81.460000]    00000003 82905e60 8287a000 00000020 82905e68 83b3e2b0 00000000 00000000
+[   81.460000]    ...
+[   81.460000] Call Trace:
+[   81.460000] [<80189504>] gpio_chip_hwgpio+0x4/0x20
+[   81.460000] [<8018969c>] gpiod_get_value_cansleep+0x1c/0x54
+[   81.460000] [<83af78c4>] 0x83af78c4
+[   81.460000] 
+[   81.460000] 
+[   81.460000] Code: 03e00008  27bd0018  8c820000 <8c420044> 00822023  3c02aaaa  00042083  3442aaab  03
+e00008 
+[   81.460000] ---[ end trace fbdf1846666602c3 ]---
+
+Find the loaded address of mhx-bsp.ko:
+root@UserDevice:~# cat proc/modules | grep mhx
+mhx_bsp 3904 0 - Live 0x83af7000
+root@UserDevice:~# cat sys/module/mhx_bsp/sections/.text 
+0x83af7000
+
+The complaint address 0x83af78c4 - 0x83af7000 = 0x8c4. So dump the mhx_bsp.o [ NOT mhx_bsp.ko] :
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-objdump -dlSr build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/mhx-bsp/mhx-bsp.o | less
+
+And find the offset 0x8c4, we can see:
+/home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/mhx-bsp/mhx-bsp.c:640
+                                info.status = gpio_direction_output(info.gpio, info.value);	// this causes the oops!!!
+ 8c4:   8fa40010        lw      a0,16(sp)
+ 8c8:   00402821        move    a1,v0
+ 8cc:   0c000000        jal     0 <mhx_bsp_open>
+                        8cc: R_MIPS_26  gpio_direction_output
+ 8d0:   afa20014        sw      v0,20(sp)
+/home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/mhx-bsp/mhx-bsp.c:648
+                                } else
+                                        info.status = 0;        //zero means set output successfully, return value =0 means output
+                        } else {
+The end of this oops is [<80189504>] gpio_chip_hwgpio+0x4/0x20. This address shows it is in kernel. Check the vmlinux:
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-objdump -dlSr build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux | less
+Directly search the address 80189504:
+80189500 <gpio_chip_hwgpio>:
+/*
+ * Return the GPIO number of the passed descriptor relative to its chip
+ */
+static int gpio_chip_hwgpio(const struct gpio_desc *desc)
+{
+        return desc - &desc->chip->desc[0];		// this causes the oops rootly. maybe desc=NULL...?
+80189500:       8c820000        lw      v0,0(a0)
+80189504:       8c420044        lw      v0,68(v0)
+80189508:       00822023        subu    a0,a0,v0
+/home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/drivers/gpio/gpiolib.c:119
+}
+
+2. This oops comes from a WARN_ON_ONCE(1). It is not actually a oops but a warning. 
+[   90.710000] ------------[ cut here ]------------
+[   90.710000] WARNING: at /home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/include/net/mac80211.h:4626 ieee80211_mps_frame_release+0xf68/0x1410 [mac80211]()
+
+[   90.710000] Modules linked in: ath9k ath9k_common qcserial ppp_async option iptable_nat ath9k_hw ath
+ usb_wwan qmi_wwan ppp_generic pl2303 nf_nat_ipv4 nf_conntrack_netlink nf_conntrack_ipv4 mac80211 ipt_M
+ASQUERADE cfg80211 cdc_ncm xt_time xt_state xt_recent xt_quota xt_pkttype xt_physdev xt_owner xt_nat xt
+_multiport xt_mark xt_mac xt_limit xt_iprange xt_iface xt_helper xt_esp xt_conntrack xt_connmark xt_con
+nlimit xt_connbytes xt_condition xt_comment xt_addrtype xt_TCPMSS xt_REDIRECT xt_RAWNAT xt_NETMAP xt_LO
+G xt_IPMARK xt_CT usbserial usbnet slhc nfnetlink nf_nat_irc nf_nat_ftp nf_nat nf_defrag_ipv4 nf_conntr
+ack_irc nf_conntrack_ftp nf_conntrack iptable_raw iptable_mangle iptable_filter ipt_ah ipt_REJECT ip_ta
+bles ebt_among ebt_802_3 crc16 crc_ccitt compat_xtables compat cdc_wdm cdc_acm arptable_filter arpt_man
+gle arp_tables act_skbedit act_mirred em_u32 cls_u32 cls_tcindex cls_flow cls_route cls_fw sch_hfsc sch
+_ingress configfs arc4 crypto_blkcipher soip sd_mod scsi_mod gpio_button_hotplug mhx_bsp
+[   90.710000] CPU: 0 PID: 1589 Comm: meshd-nl80211 Tainted: G      D      3.10.36 #1
+[   90.710000] Stack : 00000000 00000000 00000000 00000000 80392dda 00000046 829a01a8 82e30ac0
+[   90.710000]    802ebc20 803436bb 00000635 80392588 829a01a8 82e30ac0 00000004 82b7c3f8
+[   90.710000]    83545dc0 80078488 00000003 80075e94 82ed2220 82e30ac0 802ed444 829b5a24
+[   90.710000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[   90.710000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 829b59b0
+[   90.710000]    ...
+[   90.710000] Call Trace:
+[   90.710000] [<8006d800>] show_stack+0x48/0x70
+[   90.710000] [<80076004>] warn_slowpath_common+0x78/0xa8
+[   90.710000] [<800760bc>] warn_slowpath_null+0x18/0x24
+[   90.710000] [<82ec4120>] ieee80211_mps_frame_release+0xf68/0x1410 [mac80211]
+[   90.710000] 
+[   90.710000] ---[ end trace fbdf1846666602c7 ]---
+
+3. This oops comes from a WARN_ON_ONCE(i == sband->n_bitrates);. It is not actually a oops but a warning.
+[   90.800000] ------------[ cut here ]------------
+[   90.800000] WARNING: at /home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/rate.c:251 rate_control_send_comport+0x32c/0x424 [mac80211]()
+
+[   90.800000] Modules linked in: ath9k ath9k_common qcserial ppp_async option iptable_nat ath9k_hw ath
+ usb_wwan qmi_wwan ppp_generic pl2303 nf_nat_ipv4 nf_conntrack_netlink nf_conntrack_ipv4 mac80211 ipt_M
+ASQUERADE cfg80211 cdc_ncm xt_time xt_state xt_recent xt_quota xt_pkttype xt_physdev xt_owner xt_nat xt
+_multiport xt_mark xt_mac xt_limit xt_iprange xt_iface xt_helper xt_esp xt_conntrack xt_connmark xt_con
+nlimit xt_connbytes xt_condition xt_comment xt_addrtype xt_TCPMSS xt_REDIRECT xt_RAWNAT xt_NETMAP xt_LO
+G xt_IPMARK xt_CT usbserial usbnet slhc nfnetlink nf_nat_irc nf_nat_ftp nf_nat nf_defrag_ipv4 nf_conntr
+ack_irc nf_conntrack_ftp nf_conntrack iptable_raw iptable_mangle iptable_filter ipt_ah ipt_REJECT ip_ta
+bles ebt_among ebt_802_3 crc16 crc_ccitt compat_xtables compat cdc_wdm cdc_acm arptable_filter arpt_man
+gle arp_tables act_skbedit act_mirred em_u32 cls_u32 cls_tcindex cls_flow cls_route cls_fw sch_hfsc sch
+_ingress configfs arc4 crypto_blkcipher soip sd_mod scsi_mod gpio_button_hotplug mhx_bsp
+[   90.800000] CPU: 0 PID: 1589 Comm: meshd-nl80211 Tainted: G      D W    3.10.36 #1
+[   90.800000] Stack : 00000000 00000000 00000000 00000000 80392dda 00000046 829a01a8 82b4ea40
+[   90.800000]    802ebc20 803436bb 00000635 80392588 829a01a8 82b4ea40 82880420 829b5bb8
+[   90.800000]    8293f2e0 80078488 00000003 80075e94 82ecd3cc 82b4ea40 802ed444 829b58cc
+[   90.800000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[   90.800000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 829b5858
+[   90.800000]    ...
+[   90.800000] Call Trace:
+[   90.800000] [<8006d800>] show_stack+0x48/0x70
+[   90.800000] [<80076004>] warn_slowpath_common+0x78/0xa8
+[   90.800000] [<800760bc>] warn_slowpath_null+0x18/0x24
+[   90.800000] [<82e935f4>] rate_control_send_comport+0x32c/0x424 [mac80211]
+[   90.800000] 
+[   90.800000] ---[ end trace fbdf1846666602c8 ]---
+
+We can still check rate_control_send_comport() in mac80211.ko. 
+root@UserDevice:~# cat proc/modules | grep mac80211
+mac80211 359147 1 ath9k, Live 0x82e80000
+root@UserDevice:~# cat sys/module/mac80211/sections/.text
+0x82e80000
+
+Complaint address 82e935f4 - 0x82e80000 = 0x135F4.
+
+Objdump the mac80211.o. Not .ko doesn't have debug info, note "with debug_info" information:
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ file build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/mac80211.o
+build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/mac80211.o: ELF 32-bit MSB relocatable, MIPS, MIPS32 rel2 version 1 (SYSV), with debug_info, not stripped
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ file build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/mac80211.ko 
+build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/mac80211.ko: ELF 32-bit MSB relocatable, MIPS, MIPS32 rel2 version 1 (SYSV), BuildID[sha1]=0c29d117429ddde77c7fb6ce86cca4d097e0463a, not stripped
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-objdump -dlSr build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/mac80211.o | less
+
+and search offset 0x135f4: It is in actually in function __rate_control_send_low(). But if use .ko, which is actually reported by the oops, this offset is in rate_control_send_comport() function. Check the conde the WARN_ON_ONCE(i == sband->n_bitrates); is actually in __rate_control_send_low() so the .o is correct. 
+
+addr2line doesn't work very well:
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-addr2line -e build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/mac80211.o 0x135f4
+/home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/rate.c:0
+
+Oct 31, 2019
+Locate the in-kernel oops.  
+[   95.110000] CPU 0 Unable to handle kernel paging request at virtual address 00000044, epc == 80189504, ra == 8018a2ac
+[   95.110000] Oops[#2]:
+[   95.110000] CPU: 0 PID: 1283 Comm: mhx Tainted: G      D      3.10.36 #1
+[   95.110000] task: 8308dd50 ti: 828fc000 task.ti: 828fc000
+[   95.110000] $ 0   : 00000000 7fcbe86c 00000000 00000000
+[   95.110000] $ 4   : 803b72d4 00000001 00000000 0000001e
+[   95.110000] $ 8   : ffffffff 828fde74 00000000 fffffff8
+[   95.110000] $12   : 00000005 77250448 00000000 00400b8b
+[   95.110000] $16   : 00000000 00000001 83af32b0 80044750
+[   95.110000] $20   : 00000003 00000000 00000000 00000000
+[   95.110000] $24   : 00000000 7721e680                  
+[   95.110000] $28   : 828fc000 828fde38 7f94a510 8018a2ac
+[   95.110000] Hi    : 00000369
+[   95.110000] Lo    : 00001be5
+[   95.110000] epc   : 80189504 gpio_chip_hwgpio+0x4/0x20
+[   95.110000]     Tainted: G      D     
+[   95.110000] ra    : 8018a2ac gpiod_set_value_cansleep+0x68/0x94
+[   95.110000] Status: 1100f403 KERNEL EXL IE 
+[   95.110000] Cause : 00800008
+[   95.110000] BadVA : 00000044
+[   95.110000] PrId  : 0001974c (MIPS 74Kc)
+[   95.110000] Modules linked in: ath9k ath9k_common qcserial ppp_async option iptable_nat ath9k_hw ath usb_wwan qmi_wwan ppp_generic pl2303 nf_nat_ipv4 nf_conntrack_netlink nf_conntrack_ipv4 mac80211 ipt_MASQUERADE cfg80211 cdc_ncm xt_time xt_state xt_recent xt_quota xt_pkttype xt_physdev xt_owner xt_nat xt_multiport xt_mark xt_mac xt_limit xt_iprange xt_iface xt_helper xt_esp xt_conntrack xt_connmark xt_connlimit xt_connbytes xt_condition xt_comment xt_addrtype xt_TCPMSS xt_REDIRECT xt_RAWNAT xt_NETMAP xt_LOG xt_IPMARK xt_CT usbserial usbnet slhc nfnetlink nf_nat_irc nf_nat_ftp nf_nat nf_defrag_ipv4 nf_conntrack_irc nf_conntrack_ftp nf_conntrack iptable_raw iptable_mangle iptable_filter ipt_ah ipt_REJECT ip_tables ebt_among ebt_802_3 crc16 crc_ccitt compat_xtables compat cdc_wdm cdc_acm arptable_filter arpt_mangle arp_tables act_skbedit act_mirred em_u32 cls_u32 cls_tcindex cls_flow cls_route cls_fw sch_hfsc sch_ingress configfs crypto_mhx arc4 crypto_blkcipher soip sd_mod scsi_mod gpio_button_hotplug mhx_bsp
+[   95.110000] Process mhx (pid: 1283, threadinfo=828fc000, task=8308dd50, tls=77257440)
+[   95.110000] Stack : 828fdf00 00000001 828e8000 ffffff9c 7f94a560 80044750 7fcbe860 83af56f8
+[   95.110000]    7f94a510 800f0eac 772189a0 80070df4 0000001e 00000001 ffffffff 0000016a
+[   95.110000]    83af03d0 83b006e0 7fcbe860 800f2694 828e8015 00000049 00000000 834a0f68
+[   95.110000]    83af32b0 800f3284 00000000 00000000 00000000 00000000 00000000 800fb898
+[   95.110000]    8348e908 83bc02b0 00000003 83b006e0 828e8000 00000020 83b006e8 83af32b0
+[   95.110000]    ...
+[   95.110000] Call Trace:
+[   95.110000] [<80189504>] gpio_chip_hwgpio+0x4/0x20
+[   95.110000] [<8018a2ac>] gpiod_set_value_cansleep+0x68/0x94
+[   95.110000] [<83af56f8>] 0x83af56f8
+[   95.110000] 
+[   95.110000] 
+[   95.110000] Code: 03e00008  27bd0018  8c820000 <8c420044> 00822023  3c02aaaa  00042083  3442aaab  03e00008 
+[   95.110000] ---[ end trace 35f67e806e48bf42 ]---
+
+1. [<80189504>] gpio_chip_hwgpio+0x4/0x20 and [<8018a2ac>] gpiod_set_value_cansleep+0x68/0x94 are in Linux kernel part.
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ ll build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux
+-rwxr-xr-x 1 jli jli 13701755 Oct 31 11:26 build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux*
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ file build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux
+build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux: ELF 32-bit MSB executable, MIPS, MIPS32 rel2 version 1 (SYSV), statically linked, BuildID[sha1]=29c2f881a9dc81255315e8ffd6c4b1a6a514e13f, with debug_info, not stripped
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ ll /home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/tmp/vmlinux-pDDL2458.bin.lzma 
+-rw-r--r-- 1 jli jli 1109243 Oct 31 11:26 /home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/tmp/vmlinux-pDDL2458.bin.lzma
+[Note: Set CONFIG_DEBUG_INFO=y in make kernel_menuconfig doesn' change the results of above 3 commands. So looks no use.]
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-objdump -dlSr build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux to show the source code. Search for 80189504
+
+/*
+ * Return the GPIO number of the passed descriptor relative to its chip
+ */
+static int gpio_chip_hwgpio(const struct gpio_desc *desc)
+{
+        return desc - &desc->chip->desc[0];
+80189500:       8c820000        lw      v0,0(a0)
+80189504:       8c420044        lw      v0,68(v0)
+80189508:       00822023        subu    a0,a0,v0
+/home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/drivers/gpio/gpiolib.c:119
+}
+
+Search for 8018a2ac:
+/home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linu
+x-3.10.36/drivers/gpio/gpiolib.c:2042
+        else
+                chip->set(chip, gpio_chip_hwgpio(desc), value);
+8018a2a4:       0c062540        jal     80189500 <gpio_chip_hwgpio>
+8018a2a8:       00a08821        move    s1,a1
+8018a2ac:       8e190030        lw      t9,48(s0)
+/home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/drivers/gpio/gpiolib.c:2043
+}
+
+They can be located to the C code. Or use the addr2line tool:
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-addr2line -f -e build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux 80189504
+??
+/home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/drivers/gpio/gpiolib.c:118
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-addr2line -f -e build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/vmlinux 8018a2ac
+??
+/home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/linux-3.10.36/drivers/gpio/gpiolib.c:2042
+
+2. [<83af56f8>] 0x83af56f8 comes from mhx_bsp.ko, because:
+root@UserDevice:~# cat proc/modules | grep 83a
+gpio_button_hotplug 4464 0 - Live 0x83af8000
+mhx_bsp 3904 0 - Live 0x83af5000
+But still need to know the function and line# like the in-kernel as above.
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ file build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/mhx-bsp/mhx-bsp.ko 
+build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/mhx-bsp/mhx-bsp.ko: ELF 32-bit MSB relocatable, MIPS, MIPS32 rel2 version 1 (SYSV), BuildID[sha1]=a43989ea72736fb28a0c18fbc2b0f5bb8272dd38, not stripped
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-objdump -dlSr build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/mhx-bsp/mhx-bsp.ko | less. This can not see the C code [ how to see a interlaced C code like vmlinux? ]. But, by comparing the assemply code, still not hard to find the C code. The trick is to use .o instead of the .ko file. See the Nov 1, 2019 record.
+
+
+Oct 30, 2019
+Users saw pMDDL2350 mesh mode, 3 nodes disconnection issue. Screen the difference between pDDL and pMDDL.
+1. ATH9K_ANI_OFDM_DEF_LEVEL = 0 (pDDL0); 3(pMDDL)
+2. ar9003_phy.c/h.
+3. ath9k.h : Antenna diversity/combining
+4. beacon.c : ath9k_bcn_crypt_fast() in pMDDL
+5. hw.c
+6. pDDL has a reset mechanism in ath_tx_complete_poll_work().
+7. ieee80211_start_tx_ba_session()
+8. pMDDL MESH_DBG is set 1 
+9. ieee80211_send_nullfunc(). *****
+10. ieee80211_sta_tx_notify(), ieee80211_sta_work()
+11. Minstrel rate control
+12. CONFIG_MHX_STA_QLOCK_MONITOR is not in pMDDL
+13. WIPHY_FLAG_HAS_CHANNEL_SWITCH
+14. Checked all mesh parameters are same.
+
+============================================================================
+
+pMDDL2450 : during boot up, there are 2 oops:
+
+[  114.050000] ------------[ cut here ]------------
+[  114.050000] WARNING: at /home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/include/net/mac80211.h:4626 ieee80211_mps_frame_release+0xf68/0x1410 [mac80211]()
+[  114.050000] Modules linked in: g_multi usb_f_acm u_serial libcomposite ci13xxx_ar934x ci_hdrc udc_core ath9k ath9k_common qcserial ppp_async option iptable_nat ath9k_hw ath usb_wwan qmi_wwan ppp_generic pl2303 nf_nat_ipv4 nf_conntrack_netlink nf_conntrack_ipv4 mac80211 ipt_MASQUERADE cfg80211 cdc_ncm xt_time xt_state xt_recent xt_quota xt_pkttype xt_physdev xt_owner xt_nat xt_multiport xt_mark xt_mac xt_limit xt_iprange xt_iface xt_helper xt_esp xt_conntrack xt_connmark xt_connlimit xt_connbytes xt_condition xt_comment xt_addrtype xt_TCPMSS xt_REDIRECT xt_RAWNAT xt_NETMAP xt_LOG xt_IPMARK xt_CT usbserial usbnet slhc nfnetlink nf_nat_irc nf_nat_ftp nf_nat nf_defrag_ipv4 nf_conntrack_irc nf_conntrack_ftp nf_conntrack iptable_raw iptable_mangle iptable_filter ipt_ah ipt_REJECT ip_tables ebt_among ebt_802_3 crc16 crc_ccitt compat_xtables compat cdc_wdm cdc_acm arptable_filter arpt_mangle arp_tables act_skbedit act_mirred em_u32 cls_u32 cls_tcindex cls_flow cls_route cls_fw sch_hfsc sch_ingress configfs crypto_mhx arc4 crypto_blkcipher soip sd_mod scsi_mod gpio_button_hotplug mhx_bsp
+[  114.050000] CPU: 0 PID: 1494 Comm: meshd-nl80211 Tainted: G      D      3.10.36 #5
+[  114.050000] Stack : 00000000 00000000 00000000 00000000 80392dda 00000046 83bce328 83180ac0
+[  114.050000]    802ebc20 803436bb 000005d6 80392588 83bce328 83180ac0 00000004 82fab3f8
+[  114.050000]    8353c580 80078488 00000003 80075e94 83252288 83180ac0 802ed444 82fb3a24
+[  114.050000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  114.050000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 82fb39b0
+[  114.050000]    ...
+[  114.050000] Call Trace:
+[  114.050000] [<8006d800>] show_stack+0x48/0x70
+[  114.050000] [<80076004>] warn_slowpath_common+0x78/0xa8
+[  114.050000] [<800760bc>] warn_slowpath_null+0x18/0x24
+[  114.050000] [<83244120>] ieee80211_mps_frame_release+0xf68/0x1410 [mac80211]
+[  114.050000] 
+[  114.050000] ---[ end trace 6553adf23c7c4fa8 ]---
+
+and 
+
+[  114.070000] ------------[ cut here ]------------
+[  114.070000] WARNING: at /home/jli/project/work/pmddl/pmddl2450-2/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/rate.c:251 rate_control_send_comport+0x32c/0x424 [mac80211]()
+[  114.070000] Modules linked in: g_multi usb_f_acm u_serial libcomposite ci13xxx_ar934x ci_hdrc udc_core ath9k ath9k_common qcserial ppp_async option iptable_nat ath9k_hw ath usb_wwan qmi_wwan ppp_generic pl2303 nf_nat_ipv4 nf_conntrack_netlink nf_conntrack_ipv4 mac80211 ipt_MASQUERADE cfg80211 cdc_ncm xt_time xt_state xt_recent xt_quota xt_pkttype xt_physdev xt_owner xt_nat xt_multiport xt_mark xt_mac xt_limit xt_iprange xt_iface xt_helper xt_esp xt_conntrack xt_connmark xt_connlimit xt_connbytes xt_condition xt_comment xt_addrtype xt_TCPMSS xt_REDIRECT xt_RAWNAT xt_NETMAP xt_LOG xt_IPMARK xt_CT usbserial usbnet slhc nfnetlink nf_nat_irc nf_nat_ftp nf_nat nf_defrag_ipv4 nf_conntrack_irc nf_conntrack_ftp nf_conntrack iptable_raw iptable_mangle iptable_filter ipt_ah ipt_REJECT ip_tables ebt_among ebt_802_3 crc16 crc_ccitt compat_xtables compat cdc_wdm cdc_acm arptable_filter arpt_mangle arp_tables act_skbedit act_mirred em_u32 cls_u32 cls_tcindex cls_flow cls_route cls_fw sch_hfsc sch_ingress configfs crypto_mhx arc4 crypto_blkcipher soip sd_mod scsi_mod gpio_button_hotplug mhx_bsp
+[  114.070000] CPU: 0 PID: 1494 Comm: meshd-nl80211 Tainted: G      D W    3.10.36 #5
+[  114.070000] Stack : 00000000 00000000 00000000 00000000 80392dda 00000046 83bce328 82e69c40
+[  114.070000]    802ebc20 803436bb 000005d6 80392588 83bce328 82e69c40 833f0420 82fb3bb8
+[  114.070000]    82eafca0 80078488 00000003 80075e94 8324d3f4 82e69c40 802ed444 82fb38cc
+[  114.070000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  114.070000]    00000000 00000000 00000000 00000000 00000000 00000000 00000000 82fb3858
+[  114.070000]    ...
+[  114.070000] Call Trace:
+[  114.070000] [<8006d800>] show_stack+0x48/0x70
+[  114.070000] [<80076004>] warn_slowpath_common+0x78/0xa8
+[  114.070000] [<800760bc>] warn_slowpath_null+0x18/0x24
+[  114.070000] [<832135f4>] rate_control_send_comport+0x32c/0x424 [mac80211]
+[  114.070000] 
+[  114.070000] ---[ end trace 6553adf23c7c4fa9 ]---
+
+They're all from mac80211.ko. Use command :
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450-2$ staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-objdump -lS build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/mac80211.ko | less
+
+1) Search ieee80211_mps_frame_release, the start address of this function is 431b8:
+
+000431b8 <ieee80211_mps_frame_release>:
+ieee80211_mps_frame_release():
+   431b8:       8c880398        lw      t0,920(a0)
+   431bc:       24030004        li      v1,4
+   431c0:       00a01021        move    v0,a1
+   431c4:       1503001a        bne     t0,v1,43230 <ieee80211_mps_frame_release+0x78>
+   431c8:       00002821        move    a1,zero
+   431cc:       8c430014        lw      v1,20(v0)
+
+The oops comes from start_addr + 0xf68 = 000431b8 + 0xf68 = 44120, this matches the dumped address : [<83244120>] ieee80211_mps_frame_release+0xf68/0x1410 [mac80211]
+
+2) Search rate_control_send_comport, 
+
+000132c8 <rate_control_send_comport>:
+rate_control_send_comport():
+   132c8:       8ca3000c        lw      v1,12(a1)
+   132cc:       8c670098        lw      a3,152(v1)
+   132d0:       10e00033        beqz    a3,133a0 <rate_control_send_comport+0xd8>
+   132d4:       8ca60000        lw      a2,0(a1)
+   132d8:       94680062        lhu     t0,98(v1)
+
+132c8 + 0x32c = 135F4, this matches the dump : [<832135f4>] rate_control_send_comport+0x32c/0x424 [mac80211]. But go to the address 135F4:
+   135e0:       14400006        bnez    v0,135fc <rate_control_send_comport+0x334>
+   135e4:       3c040000        lui     a0,0x0
+   135e8:       24840000        addiu   a0,a0,0
+   135ec:       0c000000        jal     0 <ieee80211_restart_hw>
+   135f0:       240500fb        li      a1,251
+   135f4:       24020001        li      v0,1
+   135f8:       a2420021        sb      v0,33(s2)
+   135fc:       8e020000        lw      v0,0(s0)
+   13600:       30420004        andi    v0,v0,0x4
+   13604:       14400003        bnez    v0,13614 <rate_control_send_comport+0x34c>
+
+It is all assembly and no symbols. The absolute becomes 832135f4 from 132c8 because the mac80211.ko text section is loaded to address 0x83200000:
+root@UserDevice:~# cat sys/module/mac80211/sections/.text
+0x83200000
+cat /proc/modules can show all modules address in memory after loaded.
+
+Oct 29. 2019
+PC1----PMDDL1 ~~~~~ PMDDL2.wan ------- Internet
+PC1 to access Internet, the GW of PC1 must be set to PMDDL2 instead of PMDDL1. Other wise the packets reach br-lan of PMDDL1 but they are not forwarded to PMDDL1.wlan0.
+
+Oct 25, 2019
+https://patchwork.kernel.org/cover/11191289/
+https://git.kernel.org/pub/scm/linux/kernel/git/toke/linux.git/commit/?h=mac80211-aql-01&id=56b9e2627eccefb129450afa234443a9cdff2f4c
+https://chromium-review.googlesource.com/c/chromiumos/third_party/kernel/+/588190/14
+
+Oct 24, 2019
+This is important for airtime fairness in ath10k:
+/**
+ * DOC: mac80211 software tx queueing
+ *
+ * mac80211 provides an optional intermediate queueing implementation designed
+ * to allow the driver to keep hardware queues short and provide some fairness
+ * between different stations/interfaces.
+ * In this model, the driver pulls data frames from the mac80211 queue instead
+ * of letting mac80211 push them via drv_tx().
+ * Other frames (e.g. control or management) are still pushed using drv_tx().
+ *
+ * Drivers indicate that they use this model by implementing the .wake_tx_queue
+ * driver operation.
+ *
+ * Intermediate queues (struct ieee80211_txq) are kept per-sta per-tid, with
+ * another per-sta for non-data/non-mgmt and bufferable management frames, and
+ * a single per-vif queue for multicast data frames.
+ *
+ * The driver is expected to initialize its private per-queue data for stations
+ * and interfaces in the .add_interface and .sta_add ops.
+ *
+ * The driver can't access the queue directly. To dequeue a frame from a
+ * txq, it calls ieee80211_tx_dequeue(). Whenever mac80211 adds a new frame to a
+ * queue, it calls the .wake_tx_queue driver op.
+ *
+ * Drivers can optionally delegate responsibility for scheduling queues to
+ * mac80211, to take advantage of airtime fairness accounting. In this case, to
+ * obtain the next queue to pull frames from, the driver calls
+ * ieee80211_next_txq(). The driver is then expected to return the txq using
+ * ieee80211_return_txq().
+ *
+ * For AP powersave TIM handling, the driver only needs to indicate if it has
+ * buffered packets in the driver specific data structures by calling
+ * ieee80211_sta_set_buffered(). For frames buffered in the ieee80211_txq
+ * struct, mac80211 sets the appropriate TIM PVB bits and calls
+ * .release_buffered_frames().
+ * In that callback the driver is therefore expected to release its own
+ * buffered frames and afterwards also frames from the ieee80211_txq (obtained
+ * via the usual ieee80211_tx_dequeue).
+ */
+
+/**
+ * struct txq_info - per tid queue
+ *
+ * @tin: contains packets split into multiple flows
+ * @def_flow: used as a fallback flow when a packet destined to @tin hashes to
+ *	a fq_flow which is already owned by a different tin
+ * @def_cvars: codel vars for @def_flow
+ * @frags: used to keep fragments created after dequeue
+ * @schedule_order: used with ieee80211_local->active_txqs
+ * @schedule_round: counter to prevent infinite loops on TXQ scheduling
+ */
+struct txq_info {
+	struct fq_tin tin;
+	struct fq_flow def_flow;
+	struct codel_vars def_cvars;
+	struct codel_stats cstats;
+	struct sk_buff_head frags;
+	struct list_head schedule_order;
+	u16 schedule_round;
+	unsigned long flags;
+
+	/* keep last! */
+	struct ieee80211_txq txq;
+};
+
+/**
+ * struct ieee80211_txq - Software intermediate tx queue
+ *
+ * @vif: &struct ieee80211_vif pointer from the add_interface callback.
+ * @sta: station table entry, %NULL for per-vif queue
+ * @tid: the TID for this queue (unused for per-vif queue),
+ *	%IEEE80211_NUM_TIDS for non-data (if enabled)
+ * @ac: the AC for this queue
+ * @drv_priv: driver private area, sized by hw->txq_data_size
+ *
+ * The driver can obtain packets from this queue by calling
+ * ieee80211_tx_dequeue().
+ */
+struct ieee80211_txq {
+	struct ieee80211_vif *vif;
+	struct ieee80211_sta *sta;
+	u8 tid;
+	u8 ac;
+
+	/* must be last */
+	u8 drv_priv[0] __aligned(sizeof(void *));
+};
+
+
+
+Oct 23, 2019
+Looks like firmware-5.bin_10.2.4.70.70 can get correct TX duration time. With firmware-5.bin_10.2.4.70.70, the log shows:
+<0>[  241.158908] ==MHX5.1(ath10k_mac_update_airtime) sta=[fe:00:aa]
+<0>[  241.158929] ==MHX5.2(ath10k_mac_update_airtime) arsta->last_tx_bitrate=650
+<0>[  241.158949] ==MHX5.3(ath10k_mac_update_airtime) airtime=209
+<0>[  241.159112] ==MHX4.1(ieee80211_next_txq) schedule_round=62317
+<0>[  241.160275] ==MHX5.2(ath10k_mac_update_airtime) arsta->last_tx_bitrate=130
+<0>[  241.160285] ==MHX5.3(ath10k_mac_update_airtime) airtime=982
+<0>[  241.160415] ==MHX4.1(ieee80211_next_txq) schedule_round=62322
+<0>[  241.160440] ==MHX4.2(ieee80211_next_txq) sta=[fe:00:aa]. Deficit=-949
+<0>[  241.160461] ==MHX4.1(ieee80211_next_txq) schedule_round=62322
+<0>[  241.160485] ==MHX4.2(ieee80211_next_txq) sta=[fe:00:aa]. Deficit=-693
+<0>[  241.160506] ==MHX4.1(ieee80211_next_txq) schedule_round=62322
+<0>[  241.160517] ==MHX4.2(ieee80211_next_txq) sta=[fe:00:aa]. Deficit=-437
+<0>[  241.160525] ==MHX4.1(ieee80211_next_txq) schedule_round=62322
+<0>[  241.160535] ==MHX4.2(ieee80211_next_txq) sta=[fe:00:aa]. Deficit=-181
+<0>[  241.160544] ==MHX4.1(ieee80211_next_txq) schedule_round=62322
+<0>[  241.160555] ==MHX4.2(ieee80211_next_txq) sta=[fe:00:aa]. Deficit=75
+<0>[  241.160570] ==MHX5.0(ath10k_mac_update_airtime)
+<0>[  241.160581] ==MHX5.1(ath10k_mac_update_airtime) sta=[fe:00:aa]
+<0>[  241.160589] ==MHX5.2(ath10k_mac_update_airtime) arsta->last_tx_bitrate=650
+
+The original firmware doesn't. It always shows arsta->last_tx_bitrate=0.
+
+CT firmware firmware-2-ct-full-community.bin doesn't work at all no wlan0 interface. firmware-2-ct-non-commercial.bin has same issue of reporting : ==MHX5.2(ath10k_mac_update_airtime) arsta->last_tx_bitrate=0.
+
+This post : https://lists.bufferbloat.net/pipermail/make-wifi-fast/2017-November/001646.html mentions the airtime fairness in ath10k is not implemented.
+
+Oct 21, 2019
+Some ath10k driver concepts:
+Host-Target Transport (HTT)
+Files: htt.c htt.h htt_rx.c htt_tx.c The data path for ath10k. Sends frame descriptors to the firmware using HTC.
+
+Wireless Module Interface (WMI)
+Files: wmi.h wmi.c The control path for ath10k. Sends all sorts configuration commands to the firmware and receives configuration events from the firmware.
+
+Host-Target Communication (HTC)
+Files: htc.h htc.c Multiplexes the bus for different services. The services are defined in enum ath10k_htc_svc_gid.
+
+Host interconnect Framework (HIF)
+Files: hif.h Abstracts the access to different bus types. Currently only supports PCI, but it's easy to add different bus types.
+
+Copy Engine (CE)
+The firmware/ hardware has 8 rings for communication with host, defined in host_ce_config_wlan: static const struct ce_attr host_ce_config_wlan[]
+
+
+For drivers that don't control TXQ scheduling in software, a new API
+function, ieee80211_txq_may_transmit(), is added which the driver can use
+to check if the TXQ is eligible for transmission, or should be throttled to
+enforce fairness. ------This looks like the reason whey debug doesn't print in ieee80211_txq_may_transmit() and it is never called.
+
+Oct 18, 2019
+Debug air-fairness on ath10k. In __ieee80211_tx_status():
+		printk("==MHX5.0(%s) info->status.tx_time=%d,ack_sig=%d,ampdu_len=%d,ampdu_ack_len=%d. flagset=%d\n", __func__,info->status.tx_time,info->status.ack_signal,info->status.ampdu_len,info->status.ampdu_ack_len, wiphy_ext_feature_isset(local->hw.wiphy,  NL80211_EXT_FEATURE_AIRTIME_FAIRNESS));
+		if (info->status.tx_time &&
+		    wiphy_ext_feature_isset(local->hw.wiphy,
+					    NL80211_EXT_FEATURE_AIRTIME_FAIRNESS))
+			ieee80211_sta_register_airtime(&sta->sta, tid,
+						       info->status.tx_time, 0);
+The pring log is always:
+<0>[  399.304562] ==MHX5.0(__ieee80211_tx_status) info->status.tx_time=0,ack_sig=0,ampdu_len=0,ampdu_ack_len=0.flagset=1  
+<0>[  399.304577] ==MHX5.0(__ieee80211_tx_status) info->status.tx_time=0,ack_sig=0,ampdu_len=0,ampdu_ack_len=0. flagset=1 
+<0>[  399.304590] ==MHX5.0(__ieee80211_tx_status) info->status.tx_time=0,ack_sig=0,ampdu_len=0,ampdu_ack_len=0. flagset=1 
+<0>[  399.304602] ==MHX5.0(__ieee80211_tx_status) info->status.tx_time=0,ack_sig=0,ampdu_len=0,ampdu_ack_len=0. flagset=1 
+<0>[  399.304615] ==MHX5.0(__ieee80211_tx_status) info->status.tx_time=0,ack_sig=0,ampdu_len=0,ampdu_ack_len=0. flagset=1  
+<0>[  399.304631] ==MHX5.0(__ieee80211_tx_status) info->status.tx_time=0,ack_sig=0,ampdu_len=0,ampdu_ack_len=0. flagset=1 
+<0>[  399.304644] ==MHX5.0(__ieee80211_tx_status) info->status.tx_time=0,ack_sig=0,ampdu_len=0,ampdu_ack_len=0. flagset=1 
+
+Looks like in the tx_status, never be able to get the real tx_status information. So it doesn't affect the airtime at all.
+
+=================================
+Port latest OpenWRT backports-5.3-rc4-1 wireless driver to replace the G5 existing backports-2017-11-01 because the backports-5.3-rc4-1 has already had the AirTimeFairness support. The G5 build environment need a "lex" command in staging_dir/host/bin/ dir.
+
+Oct 16, 2019
+What is difference of 802.11n HT20 and normal 20MHz mode?
+A device that uses 802.11n high throughput (HT) mode -- also known as Greenfield mode -- assumes that there are no 802.11a/b/g stations using the same channel. 802.11a/b/g devices cannot communicate with a Greenfield AP. Instead, their transmissions are likely to collide, causing errors and retransmissions for both parties.
+However, because an 802.11a/b/g device cannot tell that a Greenfield device is transmitting, it will go right ahead and transmit. To avoid this, the 802.11n standard also defines an HT mixed mode.
+A device using HT mixed mode prepares to transmit in both the old 802.11a/b/g fashion and the new 802.11n fashion. Specifically, HT mixed mode devices transmit a legacy format preamble, followed by an HT format preamble. An HT mixed mode device must also send legacy format CTS-to-Self or RTS/CTS (Request to Send/Clear to Send) frames before transmitting. These "protection mechanisms" let nearby 802.11a/b/g devices -- including those not connected to the HT mixed AP -- sense when the channel is busy.
+
+Oct 15, 2019
+In G5, /sbin/ifdown lan and then /sbin/ifup lan will not bring back lan again. Suspect uBus then try direct command "ubus call network.interface down '{ "interface" : "lan" }'" and saw uBus did send command netifd. But in interface_proto_event_cb():
+	case IFPEV_DOWN:
+//		if (NULL == iface->ifname || (
+//			strcmp(iface->ifname, "br-wan1") &&
+//			strcmp(iface->ifname, "br-wan2") &&
+//			strcmp(iface->ifname, "br-lan"))) {
+			if (iface->state == IFS_DOWN)
+				return;
+will retunr here so that br-lan is stuck in IFS_TEARDOWN state instead of IFS_DOWN state. Then in the future when use "ifup lan", uBus calls netifd and in function interface_set_up():
+	if (iface->state != IFS_DOWN)
+		return 0;
+
+immediately returns so that the lan interface cann't be brought up successfully.
+
+Debug netifd : only log works like:
+netifd_log_message(L_NOTICE, "===MHX4.0(%s), name=%s, ifname=%s, state=%d\n", __func__, iface->name, iface->ifname, iface->state);
+
+This is a netifd debug log, with above patch applied, so that lan never comes back to normal status:
+
+                                                                                                            
+root@UserDevice:~#                                                                                          
+root@UserDevice:~#                                                                                          
+root@UserDevice:~# ifconfig                                                                                 
+br-lan    Link encap:Ethernet  HWaddr 00:0F:92:06:94:1C                                                     
+          inet addr:192.168.168.3  Bcast:192.168.168.255  Mask:255.255.255.0                                
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:158 errors:0 dropped:0 overruns:0 frame:0                                              
+          TX packets:40 errors:0 dropped:0 overruns:0 carrier:0                                             
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:14698 (14.3 KiB)  TX bytes:5606 (5.4 KiB)                                                
+                                                                                                            
+br-wan1   Link encap:Ethernet  HWaddr 00:0F:92:06:94:1C                                                     
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0                                                
+          TX packets:109 errors:0 dropped:0 overruns:0 carrier:0                                            
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:0 (0.0 B)  TX bytes:37278 (36.4 KiB)                                                     
+                                                                                                            
+br-wan2   Link encap:Ethernet  HWaddr 00:0F:92:07:94:1C                                                     
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0                                                
+          TX packets:109 errors:0 dropped:0 overruns:0 carrier:0                                            
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:0 (0.0 B)  TX bytes:37278 (36.4 KiB)                                                     
+                                                                                                            
+br-wwan   Link encap:Ethernet  HWaddr 00:0F:92:FE:00:01                                                     
+          inet addr:10.96.49.196  Bcast:255.255.255.255  Mask:255.255.255.255                               
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:22 errors:0 dropped:0 overruns:0 frame:0                                               
+          TX packets:28 errors:0 dropped:0 overruns:0 carrier:0                                             
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:2004 (1.9 KiB)  TX bytes:2327 (2.2 KiB)                                                  
+                                                                                                            
+eth0      Link encap:Ethernet  HWaddr 00:0F:92:06:94:1C                                                     
+          inet6 addr: fe80::20f:92ff:fe06:941c/64 Scope:Link                                                
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:63 errors:0 dropped:0 overruns:0 frame:0                                               
+          TX packets:241 errors:0 dropped:0 overruns:0 carrier:0                                            
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:11093 (10.8 KiB)  TX bytes:51012 (49.8 KiB)                                              
+          Interrupt:24                                                                                      
+                                                                                                            
+eth0.1    Link encap:Ethernet  HWaddr 00:0F:92:06:94:1C                                                     
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:63 errors:0 dropped:0 overruns:0 frame:0                                               
+          TX packets:116 errors:0 dropped:0 overruns:0 carrier:0                                            
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:9959 (9.7 KiB)  TX bytes:8384 (8.1 KiB)                                                  
+                                                                                                            
+eth0.2    Link encap:Ethernet  HWaddr 00:0F:92:06:94:1C                                                     
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0                                                
+          TX packets:113 errors:0 dropped:0 overruns:0 carrier:0                                            
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:0 (0.0 B)  TX bytes:37462 (36.5 KiB)                                                     
+                                                                                                            
+eth1      Link encap:Ethernet  HWaddr 00:0F:92:07:94:1C                                                     
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0                                                
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0                                              
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)                                                            
+                                                                                                            
+lo        Link encap:Local Loopback                                                                         
+          inet addr:127.0.0.1  Mask:255.0.0.0                                                               
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1                                                          
+          RX packets:8 errors:0 dropped:0 overruns:0 frame:0                                                
+          TX packets:8 errors:0 dropped:0 overruns:0 carrier:0                                              
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:440 (440.0 B)  TX bytes:440 (440.0 B)                                                    
+                                                                                                            
+usb0      Link encap:Ethernet  HWaddr 00:0F:92:FE:00:01                                                     
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:22 errors:0 dropped:0 overruns:0 frame:0                                               
+          TX packets:28 errors:0 dropped:0 overruns:0 carrier:0                                             
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:2004 (1.9 KiB)  TX bytes:2327 (2.2 KiB)                                                  
+                                                                                                            
+wlan0     Link encap:Ethernet  HWaddr 04:F0:21:42:23:F3                                                     
+          inet6 addr: fe80::6f0:21ff:fe42:23f3/64 Scope:Link                                                
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                                                
+          RX packets:63 errors:0 dropped:0 overruns:0 frame:0                                               
+          TX packets:158 errors:0 dropped:0 overruns:0 carrier:0                                            
+          collisions:0 txqueuelen:1000                                                                      
+          RX bytes:6109 (5.9 KiB)  TX bytes:16067 (15.6 KiB)                                                
+                                                                                                            
+root@UserDevice:~# brctl show                                                                               
+bridge name     bridge id               STP enabled     interfaces                                          
+br-lan          7fff.000f9206941c       no              eth0.1                                              
+                                                        wlan0                                               
+br-wan1         7fff.000f9206941c       no              eth0.2                                              
+br-wan2         7fff.000f9207941c       no              eth1                                                
+br-wwan         7fff.000f92fe0001       no              usb0                                                
+root@UserDevice:~#                                                                                          
+root@UserDevice:~# iw wlan0 station dump                                                                    
+Station 00:0f:92:fe:00:aa (on wlan0)                                                                        
+        inactive time:  15410 ms                                                                            
+        rx bytes:       1474                                                                                
+        rx packets:     23                                                                                  
+        tx bytes:       534                                                                                 
+        tx packets:     4                                                                                   
+        tx retries:     0                                                                                   
+        tx failed:      0                                                                                   
+        signal:         -51 [-52, -64, -61] dBm                                                             
+        signal avg:     -52 [-53, -63, -65] dBm                                                             
+        tx bitrate:     1.0 MBit/s                                                                          
+        rx bitrate:     57.8 MBit/s MCS 5 short GI                                                          
+        authorized:     yes                                                                                 
+        authenticated:  yes                                                                                 
+        preamble:       short                                                                               
+        WMM/WME:        yes                                                                                 
+        MFP:            no                                                                                  
+        TDLS peer:      no                                                                                  
+        connected time: 423 seconds                                                                         
+Station 00:0f:92:fe:00:86 (on wlan0)                                                                        
+        inactive time:  1150 ms                                                                             
+        rx bytes:       530                                                                                 
+        rx packets:     7                                                                                   
+        tx bytes:       534                                                                                 
+        tx packets:     4                                                                                   
+        tx retries:     0                                                                                   
+        tx failed:      0                                                                                   
+        signal:         -41 [-49, -51, -43] dBm                                                             
+        signal avg:     -41 [-47, -58, -42] dBm                                                             
+        tx bitrate:     1.0 MBit/s                                                                          
+        rx bitrate:     1.0 MBit/s                                                                          
+        authorized:     yes                                                                                 
+        authenticated:  yes                                                                                 
+        preamble:       short                                                                               
+        WMM/WME:        yes                                                                                 
+        MFP:            no                                                                                  
+        TDLS peer:      no                                                                                  
+        connected time: 30 seconds                                                                          
+root@UserDevice:~#                                                                                          
+root@UserDevice:~# ping google.ca                                                                           
+PING google.ca (172.217.14.195): 56 data bytes                                                              
+64 bytes from 172.217.14.195: seq=0 ttl=51 time=82.974 ms                                                   
+^C                                                                                                          
+--- google.ca ping statistics ---                                                                           
+1 packets transmitted, 1 packets received, 0% packet loss                                                   
+round-trip min/avg/max = 82.974/82.974/82.974 ms                                                            
+root@UserDevice:~#                                                                                          
+root@UserDevice:~# logread -f                                                                               
+=============================ubus call network.interface up '{ "interface" : "wwan" }':
+Thu Sep 12 11:58:00 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 IEEE 802.11: authenticated                   
+Thu Sep 12 11:58:00 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 IEEE 802.11: associated (aid 1)  
+Thu Sep 12 11:58:00 2019 daemon.notice hostapd: wlan0: AP-STA-CONNECTED 00:0f:92:fe:00:86                   
+Thu Sep 12 11:58:00 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 RADIUS: starting accounting sessi
+on D4046BAC4AE2797B                                                                                         
+Thu Sep 12 11:58:00 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 WPA: pairwise key handshake compl
+eted (RSN)                                                                                                  
+                                                                                                            
+                                                                                                            
+Thu Sep 12 11:58:04 2019 daemon.notice netifd: ===MHX3.0(netifd_handle_up) start...                         
+Thu Sep 12 11:58:04 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wwan, ifname=br-wwan, state
+=1 // state=IFS_UP
+Thu Sep 12 11:58:04 2019 daemon.notice netifd: ===MHX3.1(netifd_handle_up) exited                           
+                                                                                                            
+=================================ubus call network.interface down '{ "interface" : "wwan" }':               
+                                                                                                            
+Thu Sep 12 11:58:26 2019 daemon.notice netifd: Interface 'wan6', available=0                                
+Thu Sep 12 11:58:26 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=1, forcr=1    //cmd=PROTO_CMD_TEARDOWN         
+Thu Sep 12 11:58:26 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=1, forcr=0             
+Thu Sep 12 11:58:26 2019 daemon.notice netifd: ===MHX2.1(interface_proto_event), ret=0                      
+Thu Sep 12 11:58:26 2019 daemon.notice netifd: ===MHX2.2(interface_proto_event), ev=1     //ev= IFPEV_DOWN              
+Thu Sep 12 11:58:26 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='wwan', iface->state=2,event=1 //state=IFS_TEARDOWN
+Thu Sep 12 11:58:26 2019 daemon.notice netifd: ===MHX1.2(interface_proto_event_cb) Interface 'wwan' is now down. iface->state=2 //state=IFS_TEARDOWN
+Thu Sep 12 11:58:26 2019 daemon.warn dnsmasq[3153]: no servers found in /tmp/resolv.conf.auto, will retry   
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'loopback'                                  
+Thu Sep 12 11:58:[  551.505125] br-wwan: port 1(usb0) entered disabled state                                
+27 2019 daemon.notice netifd: Update interface 'lan'                                                        
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wan1'                                      
+Thu Sep 12 11:58:27 2019 daemon.no[  551.524715] IPv6: ADDRCONF(NETDEV_UP): br-wwan: link is not ready      
+tice netifd: Update interface 'wan2'                                                                        
+Thu Sep 12 11:58:27 2019 daemon.notice net[  551.538441] device usb0 left promiscuous mode                  
+ifd: Update inte[  551.543278] br-wwan: port 1(usb0) entered disabled state                                 
+rface 'wifi'                                                                                                
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wan6'                                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wwan'                                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Upd[  551.566838] IPv6: ADDRCONF(NETDEV_UP): usb0: link is not ready 
+ate interface 'hotspot'                                                                                     
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=lan, ifname=br-lan, state=1	//state=IFS_UP
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=loopback, ifname=lo, state=1    //state=IFS_UP
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan1, ifname=br-wan1, state=0   //state=IFS_SETUP
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan2, ifname=br-wan2, state=0   //state=IFS_SETUP
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='wan6', iface->state=2,event=1 
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: =======MHX1.2(interface_proto_event_cb) Interface 'wan6' is now down. iface->state=2  //state=IFS_TEARDOWN
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=2, force=0        //cmd=PROTO_CMD_RENEW     
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=2, force=0             
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX2.1(interface_proto_event), ret=0                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX2.2(interface_proto_event), ev=3                 //ev=IFPEV_RENEW     
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='wwan',iface->state=3,event=3  //state=IFS_DOWN,event=IFPEV_RENEW
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Interface 'wan6' is disabled                                 
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Interface 'wwan' is disabled                                 
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Network alias '' link is down                                
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Interface 'wan6' has link connectivity loss                  
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Network device 'usb0' link is down                           
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='wan6', iface->state=3,event=2 //state=IFS_DOWN,event=IFPEV_LINK_LOST
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: bridge 'br-wwan' link is down                                
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Interface 'wwan' has link connectivity loss                  
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'loopback'                                  
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'lan'                                       
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wan1'                                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wan2'                                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wifi'                                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wan6'                                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'wwan'                                      
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: Update interface 'hotspot'                                   
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=lan, ifname=br-lan, state=1	//IFS_UP
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=loopback, ifname=lo, state=1	//IFS_UP
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan1, ifname=br-wan1, state=0 	//IFS_SETUP
+Thu Sep 12 11:58:27 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan2, ifname=br-wan2, state=0 	//IFS_SETUP
+Thu Sep 12 11:58:27 2019 local0.err hotplug-mvpn[12918]: call mifupdown down (wwan)                         
+Thu Sep 12 11:58:27 2019 local0.err hotplug-mvpn[12969]: call mifupdown down (wwan)                         
+                                                                                                            
+                                                                                                            
+                                                                                                            
+                                                                                                            
+                                                                                                            
+=============================ubus call network.interface up '{ "interface" : "wwan" }':
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX3.0(netifd_handle_up) start...                         
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wwan, ifname=br-wwan, state=3	//state=IFS_DOWN
+[  592.105613] br-wwan: port 1(usb0) entered blocking state  
+[  592.112077] br-wwan: port 1(usb0) entered disabled state                                 
+[  592.119386] device usb0 entered promiscuous mode 
+                                                                                                        
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.1(interface_set_up) availabel=1, enabled=0           
+Thu Sep [  592.133052] br-wwan: port 1(usb0) entered blocking state                                         
+12 11:59:07 2019[  592.139723] br-wwan: port 1(usb0) entered forwarding state                               
+ daemon.notice netifd: ===MHX4.2(interface_set_up)                                                          
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=2, forcr=0  //cmd=PROTO_CMD_RENEW           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX2.1(interface_proto_event), ret=0                      
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX2.2(interface_proto_event), ev=3         //ev=IFPEV_RENEW              
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='wwan', iface->state=3,event=3	//state=IFS_DOWN,event=IFPEV_RENEW
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Interface 'wwan' is enabled                                  
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.4(interface_set_up)                                  
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX3.1(netifd_handle_up) exited                           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: bridge 'br-wwan' link is up                                  
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Interface 'wwan' has link connectivity                       
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Interface 'wwan' is setting up now                           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=0, forcr=0  //cmd=PROTO_CMD_SETUP           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX2.1(interface_proto_event), ret=0                      
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX2.2(interface_proto_event), ev=0        //ev=IFPEV_UP               
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='wwan', iface->state=0,event=0           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Interface 'wan6', available=1                                
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan6, ifname=@wwan, state=3	//state=IFPEV_RENEW
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.1(interface_set_up) availabel=1, enabled=0           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.2(interface_set_up)                                  
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Interface 'wan6' is enabled                                  
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.4(interface_set_up)                                  
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Network alias 'br-wwan' link is up                           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Interface 'wan6' has link connectivity                       
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Interface 'wan6' is setting up now                           
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=0, forcr=0             
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: =========MHX1.1(interface_proto_event_cb) Interface 'wwan' is now up. iface->state=1 //state=IFS_UP
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: reading /tmp/resolv.conf.auto                           
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain test              
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain onion             
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain localhost         
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain local             
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain invalid           
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain example.net       
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain example.org       
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using local addresses only for domain example.com       
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using nameserver 75.153.171.23#53                       
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using nameserver 75.153.171.24#53                       
+Thu Sep 12 11:59:07 2019 daemon.info dnsmasq[3153]: using 3 more local addresses                            
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Network device 'usb0' link is up                             
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'loopback'                                  
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'lan'                                       
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'wan1'                                      
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'wan2'                                      
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'wifi'                                      
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'wan6'                                      
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'wwan'                                      
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: Update interface 'hotspot'                                   
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=lan, ifname=br-lan, state=1
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=loopback, ifname=lo, state=1
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan1, ifname=br-wan1, state=0 
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan2, ifname=br-wan2, state=0 
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan6, ifname=@wwan, state=0
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wwan, ifname=br-wwan, state=1 
+Thu Sep 12 11:59:07 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='wan6', iface->state=0,event=2 
+Thu Sep 12 11:59:07 2019 user.notice defaultroute[13855]: ip route add 10.0.0.1/32 dev br-wwan [0]          
+Thu Sep 12 11:59:07 2019 user.notice defaultroute[13855]: ip route add default 10.0.0.1 dev br-wwan [0]     
+Thu Sep 12 11:59:07 2019 user.notice defaultroute[13855]: ip -6 neigh replace Address lladdr 00:0F:92:FE:00:01 dev br-wwan [0] 
+Thu Sep 12 11:59:08 2019 user.notice fw-hotplug[13855]: Reloading firewall due to ifup of wwan (br-wwan)    
+Thu Sep 12 11:59:08 2019 local0.err hotplug-mvpn[13855]: call mifupdown up (wwan)                           
+Thu Sep 12 11:59:09 2019 user.notice coova-chilli-init[14047]: The network hotspot is not briged with wireless AP interface. Hotspot service can not start. 
+                                                                                                            
+                                                                                                            
+                                                                                                            
+                                                                                                            
+====================ubus call network.interface up '{ "interface" : "lan" }':                               
+Thu Sep 12 11:59:32 2019 daemon.notice netifd: ===MHX3.0(netifd_handle_up) start...                         
+Thu Sep 12 11:59:32 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=lan, ifname=br-lan, state=1
+Thu Sep 12 11:59:32 2019 daemon.notice netifd: ===MHX3.1(netifd_handle_up) exited                           
+                                                                                                            
+==================ubus call network.interface down '{ "interface" : "lan" }':                               
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=1, forcr=0   //cmd=PROTO_CMD_TEARDOWN          
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX2.1(interface_proto_event), ret=0                      
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX2.2(interface_proto_event), ev=1      	//ev=IFPEV_DOWN                 
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='lan', iface->state=2,event=1   // state=IFS_TEARDOWN
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'loopback'                                  
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'lan'                                       
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'wan1'                                      
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'wan2'                                      
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'wifi'                                      
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'wan6'                                      
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'wwan'                                      
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: Update interface 'hotspot'                                   
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=loopback, ifname=lo, state=1 
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan1, ifname=br-wan1, state=0 
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan2, ifname=br-wan2, state=0 
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan6, ifname=@wwan, state=0
+Thu Sep 12 11:59:53 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wwan, ifname=br-wwan, state=1 
+                                                                                                            
+                                                                                                            
+Thu Sep 12 11:59:56 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 WPA: group key handshake completed (RSN)
+Thu Sep 12 11:59:56 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:aa WPA: group key handshake completed (RSN) 
+                                                                                                            
+                                                                                                            
+                                                                                                            
+                                                                                                            
+                                                                                                            
+====================== ubus call network.interface up '{ "interface" : "lan" }':                            
+Thu Sep 12 12:00:15 2019 daemon.notice netifd: ===MHX3.0(netifd_handle_up) start...                         
+Thu Sep 12 12:00:15 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=lan, ifname=br-lan, state=2
+Thu Sep 12 12:00:15 2019 daemon.notice netifd: ===MHX3.1(netifd_handle_up) exited                           
+                                                                                                            
+                                                                                                            
+==================== wifi:                                                                                  
+                                                                                                            
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'loopback'                                  
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'lan'                                       
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'wan1'                                      
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'wan2'                                      
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'wifi'                                      
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'wan6'                                      
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'wwan'                                      
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: Update interface 'hotspot'                                   
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=lan, ifname=br-lan, state=2	//br-lan is still in IFS_TEARDOWN state.
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=loopback, ifname=lo, state=1  
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan1, ifname=br-wan1, state=0 
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan2, ifname=br-wan2, state=0 
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wan6, ifname=@wwan, state=0
+Thu Sep 12 12:00:31 2019 daemon.notice netifd: ===MHX4.0(interface_set_up), name=wwan, ifname=br-wwan, state=1 
+Thu Sep 12 12:00:32 2019 daemon.notice hostapd: wlan0: interface state ENABLED->DISABLED                    
+Thu Sep 12 12:00:32 2019 daemon.notice hostapd: wlan0: AP-STA-DISCONNECTED 00:0f:92:fe:00:86                
+Thu Sep 12 12:00:32 2019 daemon.notice hostapd: wlan0: AP-STA-DISCONNECTED 00:0f:92:fe:00:aa                
+Thu Sep 12 12:00:32 2019 daemon.notice hostapd: wlan0: AP-DISABLED                                          
+Thu Sep 12 12:00:32 2019 daemon.notice hostapd: wlan0: CTRL-EVENT-TERMINATING                               
+Thu Sep 12 12:00:32 2019 daemon.notice hostapd: nl80211: deinit ifname=wlan0 disabled_11b_rates=0           
+[  676.585352] device wlan0 left promiscuous mode                                                           
+[  676.590057] br-lan: port 2(wlan0) entered disabled state                                                 
+Thu Sep 12 12:00:32 2019 daemon.notice netifd: Network device 'wlan0' link is down                          
+Thu Sep 12 12:00:32 2019 daemon.notice netifd: radio0 (16000): WARNING: Variable 'data' does not exist or is
+ not an array/object                                                                                        
+Thu Sep 12 12:00:32 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=2, forcr=0             
+Thu Sep 12 12:00:32 2019 daemon.notice netifd: ===MHX2.1(interface_proto_event), ret=0                      
+Thu Sep 12 12:00:32 2019 daemon.notice netifd: ===MHX2.2(interface_proto_event), ev=3                       
+Thu Sep 12 12:00:32 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='lan', iface->state=2,event=3   
+Thu Sep 12 12:00:32 2019 daemon.err hostapd: Configuration file: /var/run/hostapd-phy0.conf                 
+[  678.701402] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready                                          
+[  678.711534] br-lan: port 2(wlan0) entered blocking state                                                 
+[  678.716888] br-lan: port 2(wlan0) entered disabled state                                                 
+[  678.722734] device wlan0 entered promiscuous mode                                                        
+Thu Sep 12 12:00:34 2019 daemon.notice hostapd: wlan0: interface state UNINITIALIZED->COUNTRY_UPDATE        
+Thu Sep 12 12:00:34 2019 daemon.err hostapd: Using interface wlan0 with hwaddr 04:f0:21:42:23:f3 and ssid "bulletac-jeff"  
+[  679.078053] IPv6: ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready                                     
+[  679.084728] br-lan: port 2(wlan0) entered blocking state                                                 
+[  679.090065] br-lan: port 2(wlan0) entered forwarding state                                               
+Thu Sep 12 12:00:34 2019 daemon.notice hostapd: wlan0: interface state COUNTRY_UPDATE->ENABLED              
+Thu Sep 12 12:00:34 2019 daemon.notice hostapd: wlan0: AP-ENABLED                                           
+Thu Sep 12 12:00:34 2019 daemon.notice netifd: Network device 'wlan0' link is up                            
+Thu Sep 12 12:00:34 2019 daemon.notice netifd: ===MHX2.0(interface_proto_event), cmd=2, forcr=0             
+Thu Sep 12 12:00:34 2019 daemon.notice netifd: ===MHX2.1(interface_proto_event), ret=0                      
+Thu Sep 12 12:00:34 2019 daemon.notice netifd: ===MHX2.2(interface_proto_event), ev=3                       
+Thu Sep 12 12:00:34 2019 daemon.notice netifd: ===MHX1.0(interface_proto_event_cb)Event iface->name='lan', iface->state=2,event=3   
+Thu Sep 12 12:00:35 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 IEEE 802.11: authenticated       
+Thu Sep 12 12:00:35 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 IEEE 802.11: associated (aid 1)  
+Thu Sep 12 12:00:35 2019 daemon.notice hostapd: wlan0: AP-STA-CONNECTED 00:0f:92:fe:00:86                   
+Thu Sep 12 12:00:35 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 RADIUS: starting accounting session 62E65E668C1300F0 
+Thu Sep 12 12:00:35 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 WPA: pairwise key handshake completed (RSN)   
+Thu Sep 12 12:00:36 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:aa IEEE 802.11: authenticated       
+Thu Sep 12 12:00:36 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:aa IEEE 802.11: associated (aid 2)  
+Thu Sep 12 12:00:36 2019 daemon.notice hostapd: wlan0: AP-STA-CONNECTED 00:0f:92:fe:00:aa                   
+Thu Sep 12 12:00:36 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:aa RADIUS: starting accounting session 908EAA192189F81E 
+Thu Sep 12 12:00:36 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:aa WPA: pairwise key handshake completed (RSN) 
+                                                                                                            
+
+Thu Sep 12 12:00:55 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 IEEE 802.11: authenticated       
+Thu Sep 12 12:00:55 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 IEEE 802.11: associated (aid 1)  
+Thu Sep 12 12:00:55 2019 daemon.notice hostapd: wlan0: AP-STA-CONNECTED 00:0f:92:fe:00:86                   
+Thu Sep 12 12:00:55 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 RADIUS: starting accounting session 62E65E668C1300F0  
+Thu Sep 12 12:00:55 2019 daemon.info hostapd: wlan0: STA 00:0f:92:fe:00:86 WPA: pairwise key handshake completed (RSN) 
+
+root@UserDevice:~# ifstatus lan                                                                             
+{                                                                                                           
+        "up": false,                                                                                        
+        "pending": false,                                                                                   
+        "available": true,                                                                                  
+        "autostart": true,                                                                                  
+        "dynamic": false,                                                                                   
+        "proto": "static",                                                                                  
+        "device": "br-lan",                                                                                 
+        "data": {                                                                                           
+                                                                                                            
+        }                                                                                                   
+}                                                                                                           
+root@UserDevice:~# cat var/state/network                                                                    
+network.lan.ifname='br-lan'                                                                                 
+network.loopback.up='1'                                                                                     
+network.wwan.lastip='10.96.49.196'                                                                          
+network.wwan.link='auto'                                                                                    
+network.wwan.up='1'                                                                                         
+network.wwan.ifname='br-wwan'                                                                               
+root@UserDevice:~# 
+
+
+Oct 7, 2019
+G5 baseline manually add airtime fairness:
+
+Oct 3,2019
+Performance anomaly of 802.11b : The performance of the IEEE 802.11b wireless local area networks is analyzed. We have observed that when some mobile hosts use a lower bit rate than the others, the performance of all hosts is considerably degraded. Such a situation is a common case in wireless local area networks in which a host far away from an access point is subject to important signal fading and interference. To cope with this problem, the host changes its modulation type, which degrades its bit rate to some lower value. Typically, 802.11b products degrade the bit rate from 11 Mb/s to 5.5, 2, or 1 Mb/s when repeated unsuccessful frame transmissions are detected. In such a case, a host transmitting for example at 1 Mb/s reduces the throughput of all other hosts transmitting at 11 Mb/s to a low value below 1 Mb/s. The basic CSMA/CA channel access method is at the root of this anomaly: it guarantees an equal long term channel access probability to all hosts. When one host captures the channel for a long time because its bit rate is low, it penalizes other hosts that use the higher rate. We analyze the anomaly theoretically by deriving simple expressions for the useful throughput, validate them by means of simulation, and compare with several performance measurements.
+
+Guys, think of Airtime fairness as a toggle to decide whether the amount of data, or the amount of time should be fair, among actively receiving clients.
+
+w/ airtime fairness (ATF), each devices gets the same amount of time, so a faster client (better modulation) can get more data in it's time, and a slower client gets less.
+
+w/o, all devices get equal throughput. A fast device will get 2kb, then a slow client will get 2kb and back and forth.
+
+
 Sept 27, 2019
 In Ubnt16.04 install a TightVNC, in Ubnt18.04 install Remmina VNC viewer. The connection is ok but the X-Window desktop on the viwer side is different with the TightVNC serverside. It functions somehow well except some weird things. The port uses 5901 and VNC protocol. 
 
