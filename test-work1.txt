@@ -1,3 +1,1464 @@
+Jan 7, 2020
+pMDDL2450(ar9341) configure the tx/rx chains: printk in ath9k_set_antenna() function:
+static int ath9k_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
+{
+	struct ath_softc *sc = hw->priv;
+	struct ath_hw *ah = sc->sc_ah;
+
+	printk("==MHX1.0 tx_chainmask=%x, rx_chainmask=%x\n", ah->caps.tx_chainmask, ah->caps.rx_chainmask);
+	if (ah->caps.rx_chainmask != 1)
+		rx_ant |= tx_ant;
+
+	printk("==MHX1.1 tx_ant=%x, rx_ant=%x\n", tx_ant, rx_ant);
+	if (!validate_antenna_mask(ah, rx_ant) || !tx_ant)
+		return -EINVAL;
+
+	sc->ant_rx = rx_ant;
+	sc->ant_tx = tx_ant;
+
+	printk("==MHX1.2 tx_ant=%x, rx_ant=%x\n", tx_ant, rx_ant);
+
+	if (ah->caps.rx_chainmask == 1)
+		return 0;
+
+	printk("==MHX1.3 tx_ant=%x, rx_ant=%x. is_ar9100=%d\n", tx_ant, rx_ant, AR_SREV_9100(ah));
+	/* AR9100 runs into calibration issues if not all rx chains are enabled */
+	if (AR_SREV_9100(ah))
+		ah->rxchainmask = 0x7;
+	else
+		ah->rxchainmask = fill_chainmask(ah->caps.rx_chainmask, rx_ant);
+
+	ah->txchainmask = fill_chainmask(ah->caps.tx_chainmask, tx_ant);
+	ath9k_cmn_reload_chainmask(ah);
+
+	return 0;
+}
+
+The log of iw command:
+=============iw phy phy0 set antenna 1 1:
+<0>[  144.950000] ==MHX1.0 tx_chainmask=3, rx_chainmask=3
+<0>[  144.950000] ==MHX1.1 tx_ant=1, rx_ant=1
+<0>[  144.950000] ==MHX1.2 tx_ant=1, rx_ant=1
+<0>[  144.950000] ==MHX1.3 tx_ant=1, rx_ant=1. is_ar9100=0
+==============iw phy phy0 set antenna 3 3
+<0>[  168.380000] ==MHX1.0 tx_chainmask=3, rx_chainmask=3
+<0>[  168.380000] ==MHX1.1 tx_ant=3, rx_ant=3
+<0>[  168.380000] ==MHX1.2 tx_ant=3, rx_ant=3
+<0>[  168.380000] ==MHX1.3 tx_ant=3, rx_ant=3. is_ar9100=0
+=============iw phy phy0 set antenna 1 3
+<0>[  187.440000] ==MHX1.0 tx_chainmask=3, rx_chainmask=3
+<0>[  187.440000] ==MHX1.1 tx_ant=1, rx_ant=3
+<0>[  187.440000] ==MHX1.2 tx_ant=1, rx_ant=3
+<0>[  187.440000] ==MHX1.3 tx_ant=1, rx_ant=3. is_ar9100=0
+=============iw phy phy0 set antenna 3 1
+<0>[  208.040000] ==MHX1.0 tx_chainmask=3, rx_chainmask=3
+<0>[  208.040000] ==MHX1.1 tx_ant=3, rx_ant=3
+<0>[  208.040000] ==MHX1.2 tx_ant=3, rx_ant=3
+<0>[  208.040000] ==MHX1.3 tx_ant=3, rx_ant=3. is_ar9100=0
+
+This means can't be RX1+TX2 (mosi) mode.
+
+
+Jan 6, 2020
+65hrs over weekend test. pVivian-----USB Hub dev board--------PC (with EasyPlayer). pVivian is not seen any reboot. This means the USB Hub evaluation board is not the problem.
+
+Ubnt16.04, install phymyadmin, MySQL application password for phpmyadmin is : Microhard18. Install Wordpress, SiteTitle=Ubuntu1604-wp;username=Ubuntu1604-wp-user;Password=Microhard18.
+
+Jan 2, 2020
+40hrs streaming pVivian test over pMDDL2450. No "/proc/kmsg" complaint from pVivian, uptime=18hrs. pMDDL2450 saw 5 disconnections of pVivian. 
+
+This means pVivian has rebooted. But it's pMDDL2450 caused its reboot because PC didn't have this issue after a 71hrs stress test.
+
+Dec 31, 2019
+pMDDL2450, switch between MESH mode and STA mode.
+1. After Mesh mode switches to STA mode, arp table in unit is wrong. "ip neigh show" shows a wrong MAC address always REACHABLE but actually it is STALE. Manually "ip neigh flush 192.168.10.5" resolves this problem.
+
+2. Afte STA mode switches to Mesh mode, PCs behind Mesh Nodes can not reach each other. Disable/Enable the PC Ethernet port doesn't help. Looks like none-encryption Mesh has no issue.
+
+Dec 19, 2019
+When EasyPlayerPro is using TCP for RTSP, a sudden antenna removal will easily cause too many TCP Retremissions between EasyPlayer and pVivian. So use UDP for RTSP.
+When using UDP RTSP, the latency is reduced to about 270mS over wifi. And AP transmitter aggregation length is around 3, while in TCP it is about 1.2.
+
+Dec 17, 2019
+CI copied to /var/www/html/ but use apache2 127.0.0.1/codeigniter/index.php complains 403:Forbidden. The reason is hat the "codeigniter" directory it self must have -x permission:
+
+jli@jli-OptiPlex-7060:~$ sudo ls -al /var/www/html/
+total 28
+drwxr-xr-x 3 www-data www-data  4096 Dec  3 15:43 .
+drwxr-xr-x 3 root     root      4096 Dec  3 15:34 ..
+drw-rw-rw- 5 www-data www-data  4096 Dec 16 16:15 codeigniter	// no -x
+-rw-r--r-- 1 root     root     11321 Nov 29 11:22 index.html
+-rw-rw-rw- 1 jli      jli        565 Dec 16 12:05 test.php
+jli@jli-OptiPlex-7060:~$ sudo chmod 777 /var/www/html/codeigniter/
+jli@jli-OptiPlex-7060:~$ sudo ls -al /var/www/html/
+total 28
+drwxr-xr-x 3 www-data www-data  4096 Dec  3 15:43 .
+drwxr-xr-x 3 root     root      4096 Dec  3 15:34 ..
+drwxrwxrwx 5 www-data www-data  4096 Dec 16 16:15 codeigniter	// add +x
+-rw-r--r-- 1 root     root     11321 Nov 29 11:22 index.html
+-rw-rw-rw- 1 jli      jli        565 Dec 16 12:05 test.php
+
+Web access works.
+
+
+Dec 13, 2019
+pVivian over pMDDL2450 wireless. The latency was measured about 300-650mS. When good video playback (TCP playback), the reverse ping from Player to pVivian(8.10) is about 2ms~5mS. And on the AP the aggregation is about <2: Average A-MPDU length: 1.6 (wireless.radio0.txaggr=0).
+A direct connection: PC2 as video source ---- HDMI cable----pVivian---USB Cable---PC1, the latency is 190mS.
+
+Dec, 2, 2019
+Ubnt16.04+Apache2+PHP7.0.33. /var/www/html/test.php doesn't show up in browser. Install libapache2-mod-php7.0.
+
+Nov 29, 2019
+If chilli is started properly, you should see a new interface called tun0 displayed while using ifconfig. This interface should get the gateway IP address for your configured hotspot system. To better understand, it’s basically a tunnel interface between your hotspot serving wireless interface (wlp2s0) and externally connected ethernet interface (enp1s0). That means, all your wireless traffic will pass through this tunnel before reaching external networks and Coova can control all these traffic. That’s why clients cannot get to Internet until Coova allows them. And once a client is allowed external access, Coova masquerades or NAT’s this traffic through the ethernet interface using Iptables.
+
+Nov 28, 2019
+https://www.digitalocean.com/community/tutorials/how-to-set-up-an-openvpn-server-on-ubuntu-16-04. 
+1. On server side, Ubnt16.04:
+root@jli-OptiPlex-7060:~# ps -aux | grep openvpn
+nobody   23985  0.1  0.0  44132  5868 ?        Ss   09:50   0:08 /usr/sbin/openvpn --daemon ovpn-my_server --status /run/openvpn/my_server.status 10 --cd /etc/openvpn --script-security 2 --config /etc/openvpn/my_server.conf --writepid /run/openvpn/my_server.pid
+root@jli-OptiPlex-7060:~# ifconfig
+docker0   Link encap:Ethernet  HWaddr 02:42:db:10:ad:a5  
+          inet addr:172.17.0.1  Bcast:172.17.255.255  Mask:255.255.0.0
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+eno1      Link encap:Ethernet  HWaddr 8c:ec:4b:cd:4e:f4  
+          inet addr:192.168.22.183  Bcast:192.168.22.255  Mask:255.255.255.0
+          inet6 addr: fe80::ab1e:94cf:9d98:1d1c/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:397817826 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1166271326 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:28373259118 (28.3 GB)  TX bytes:1299583487983 (1.2 TB)
+          Interrupt:16 Memory:92c00000-92c20000 
+
+enx0050b60f6336 Link encap:Ethernet  HWaddr 00:50:b6:0f:63:36  
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:37504 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:11546 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:4243528 (4.2 MB)  TX bytes:1752577 (1.7 MB)
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+          RX packets:24562 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:24562 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:2256081 (2.2 MB)  TX bytes:2256081 (2.2 MB)
+
+tun0      Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  
+          inet addr:10.8.0.1  P-t-P:10.8.0.2  Mask:255.255.255.255
+          inet6 addr: fe80::cc06:922e:e390:f290/64 Scope:Link
+          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1500  Metric:1
+          RX packets:423493 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:792477 errors:0 dropped:8007 overruns:0 carrier:0
+          collisions:0 txqueuelen:100 
+          RX bytes:22768788 (22.7 MB)  TX bytes:1093586136 (1.0 GB)
+root@jli-OptiPlex-7060:~# ip addr  show tun0
+5: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 100
+    link/none 
+    inet 10.8.0.1 peer 10.8.0.2/32 scope global tun0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::cc06:922e:e390:f290/64 scope link flags 800 
+       valid_lft forever preferred_lft forever
+
+2. On the client side,Ubnt18.04, use openvpn work in client mode:
+jli@DENG-JEFFL:~$ sudo openvpn --config ~/tmp/client1.ovpn 
+Thu Nov 28 11:55:16 2019 OpenVPN 2.4.4 x86_64-pc-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] built on May 14 2019
+Thu Nov 28 11:55:16 2019 library versions: OpenSSL 1.1.1  11 Sep 2018, LZO 2.08
+Thu Nov 28 11:55:16 2019 NOTE: the current --script-security setting may allow this configuration to call user-defined scripts
+Thu Nov 28 11:55:16 2019 Outgoing Control Channel Authentication: Using 256 bit message hash 'SHA256' for HMAC authentication
+Thu Nov 28 11:55:16 2019 Incoming Control Channel Authentication: Using 256 bit message hash 'SHA256' for HMAC authentication
+Thu Nov 28 11:55:16 2019 TCP/UDP: Preserving recently used remote address: [AF_INET]192.168.22.183:1194
+Thu Nov 28 11:55:16 2019 Socket Buffers: R=[212992->212992] S=[212992->212992]
+Thu Nov 28 11:55:16 2019 UDP link local: (not bound)
+Thu Nov 28 11:55:16 2019 UDP link remote: [AF_INET]192.168.22.183:1194
+Thu Nov 28 11:55:16 2019 NOTE: UID/GID downgrade will be delayed because of --client, --pull, or --up-delay
+Thu Nov 28 11:55:16 2019 TLS: Initial packet from [AF_INET]192.168.22.183:1194, sid=56411fd0 663fd3e0
+Thu Nov 28 11:55:16 2019 VERIFY OK: depth=1, C=CA, ST=AB, L=Calgary, O=MHX, OU=MyOrganizationalUnit, CN=MHX-CommonName, name=EasyRSA-Server-Key, emailAddress=me@myhost.mydomain
+Thu Nov 28 11:55:16 2019 VERIFY KU OK
+Thu Nov 28 11:55:16 2019 Validating certificate extended key usage
+Thu Nov 28 11:55:16 2019 ++ Certificate has EKU (str) TLS Web Server Authentication, expects TLS Web Server Authentication
+Thu Nov 28 11:55:16 2019 VERIFY EKU OK
+Thu Nov 28 11:55:16 2019 VERIFY OK: depth=0, C=CA, ST=AB, L=Calgary, O=MHX, OU=MyOrganizationalUnit, CN=my_server, name=EasyRSA-Server-Key, emailAddress=me@myhost.mydomain
+Thu Nov 28 11:55:16 2019 Control Channel: TLSv1.2, cipher TLSv1.2 DHE-RSA-AES256-GCM-SHA384, 2048 bit RSA
+Thu Nov 28 11:55:16 2019 [my_server] Peer Connection Initiated with [AF_INET]192.168.22.183:1194
+Thu Nov 28 11:55:17 2019 SENT CONTROL [my_server]: 'PUSH_REQUEST' (status=1)
+Thu Nov 28 11:55:17 2019 PUSH: Received control message: 'PUSH_REPLY,route 10.8.0.1,topology net30,ping 10,ping-restart 120,ifconfig 10.8.0.6 10.8.0.5'
+Thu Nov 28 11:55:17 2019 OPTIONS IMPORT: timers and/or timeouts modified
+Thu Nov 28 11:55:17 2019 OPTIONS IMPORT: --ifconfig/up options modified
+Thu Nov 28 11:55:17 2019 OPTIONS IMPORT: route options modified
+Thu Nov 28 11:55:17 2019 Outgoing Data Channel: Cipher 'AES-128-CBC' initialized with 128 bit key
+Thu Nov 28 11:55:17 2019 Outgoing Data Channel: Using 256 bit message hash 'SHA256' for HMAC authentication
+Thu Nov 28 11:55:17 2019 Incoming Data Channel: Cipher 'AES-128-CBC' initialized with 128 bit key
+Thu Nov 28 11:55:17 2019 Incoming Data Channel: Using 256 bit message hash 'SHA256' for HMAC authentication
+Thu Nov 28 11:55:17 2019 ROUTE_GATEWAY 192.168.22.1/255.255.255.0 IFACE=enp0s31f6 HWADDR=8c:ec:4b:6c:97:db
+Thu Nov 28 11:55:17 2019 TUN/TAP device tun0 opened
+Thu Nov 28 11:55:17 2019 TUN/TAP TX queue length set to 100
+Thu Nov 28 11:55:17 2019 do_ifconfig, tt->did_ifconfig_ipv6_setup=0
+Thu Nov 28 11:55:17 2019 /sbin/ip link set dev tun0 up mtu 1500
+Thu Nov 28 11:55:17 2019 /sbin/ip addr add dev tun0 local 10.8.0.6 peer 10.8.0.5
+Thu Nov 28 11:55:17 2019 /etc/openvpn/update-resolv-conf tun0 1500 1570 10.8.0.6 10.8.0.5 init
+Thu Nov 28 11:55:17 2019 /sbin/ip route add 10.8.0.1/32 via 10.8.0.5
+Thu Nov 28 11:55:17 2019 GID set to nogroup
+Thu Nov 28 11:55:17 2019 UID set to nobody
+Thu Nov 28 11:55:17 2019 WARNING: this configuration may cache passwords in memory -- use the auth-nocache option to prevent this
+Thu Nov 28 11:55:17 2019 Initialization Sequence Completed
+
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ ifconfig
+enp0s31f6: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.22.188  netmask 255.255.255.0  broadcast 192.168.22.255
+        inet6 fe80::c7af:191f:5f25:3448  prefixlen 64  scopeid 0x20<link>
+        ether 8c:ec:4b:6c:97:db  txqueuelen 1000  (Ethernet)
+        RX packets 1171207717  bytes 1305037398796 (1.3 TB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 400351554  bytes 28464601114 (28.4 GB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+        device interrupt 20  memory 0xef300000-ef320000  
+
+enx000ec68941be: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.168.100  netmask 255.255.255.0  broadcast 192.168.168.255
+        inet6 fe80::aaa4:fc41:4dea:e66d  prefixlen 64  scopeid 0x20<link>
+        ether 00:0e:c6:89:41:be  txqueuelen 1000  (Ethernet)
+        RX packets 260484  bytes 38617879 (38.6 MB)
+        RX errors 53  dropped 57  overruns 0  frame 26
+        TX packets 273941  bytes 56218967 (56.2 MB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 105919  bytes 17562372 (17.5 MB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 105919  bytes 17562372 (17.5 MB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1500
+        inet 10.8.0.6  netmask 255.255.255.255  destination 10.8.0.5
+        inet6 fe80::ec9d:20d1:9862:a6c1  prefixlen 64  scopeid 0x20<link>
+        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 100  (UNSPEC)
+        RX packets 792467  bytes 1093585656 (1.0 GB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 423500  bytes 22769124 (22.7 MB)
+        TX errors 0  dropped 581 overruns 0  carrier 0  collisions 0
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ ip addr show tun0
+4: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 100
+    link/none 
+    inet 10.8.0.6 peer 10.8.0.5/32 scope global tun0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::ec9d:20d1:9862:a6c1/64 scope link stable-privacy 
+       valid_lft forever preferred_lft forever
+jli@DENG-JEFFL:~/project/work/pmddl/pmddl2450$ ping 10.8.0.1
+PING 10.8.0.1 (10.8.0.1) 56(84) bytes of data.
+64 bytes from 10.8.0.1: icmp_seq=1 ttl=64 time=0.912 ms
+64 bytes from 10.8.0.1: icmp_seq=2 ttl=64 time=0.799 ms
+^C
+--- 10.8.0.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1006ms
+rtt min/avg/max/mdev = 0.799/0.855/0.912/0.063 ms
+
+Test the OpenVPN t/p:
+
+	OpenVPN Client 10.8.0.6			OpenVPN Server 108.0.1				T/P	Comment
+	iperf -s -i 2				iperf -c 10.8.0.6 -i 2			823 Mbits/sec	VPN TCP
+	iperf -s -i 2 -u			iperf -c 10.8.0.6 -i 2 -u -b 850m	812 Mbits/sec	VPN UDP
+	iperf -s -i 2				iperf -c 192.168.22.188 -i 2		934 Mbits/sec	regular TCP
+	iperf -s -i 2 -u			iperf -c 192.168.22.188 -i 2 -u -b 950m	807 Mbits/sec	regular UDP
+
+Nov 27, 2019
+TLS handshake process:
+Random1(by browser), Random2(by server),第三个随机数(by browser)，又称"pre-master key". 
+"不管是客户端还是服务器，都需要随机数，这样生成的密钥才不会每次都一样。由于SSL协议中证书是静态的，因此十分有必要引入一种随机因素来保证协商出来的密钥的随机性。对于RSA密钥交换算法来说，pre-master-key本身就是一个随机数，再加上hello消息中的随机，三个随机数通过一个密钥导出器最终导出一个对称密钥。pre master的存在在于SSL协议不信任每个主机都能产生完全随机的随机数，如果随机数不随机，那么pre master secret就有可能被猜出来，那么仅适用pre master secret作为密钥就不合适了，因此必须引入新的随机因素，那么客户端和服务器加上pre master secret三个随机数一同生成的密钥就不容易被猜出了，一个伪随机可能完全不随机，可是是三个伪随机就十分接近随机了，每增加一个自由度，随机性增加的可不是一。"
+
+pMDDL Que mapping
+Use ping ToS to test the queue:
+ping -Q 			0	32		64	96	128	160	192	224	
+TXDP[q](H/W)			1	0		0	1	2	2	3	3
+
+Nov 26, 2019
+WPA2-Enterprise has the same key-exchange after the Radius server "Sending Access-Accept". This is a tcpdump log on the AP:
+
+18:52:45.269105 00:0f:92:fe:00:86 > 04:f0:21:42:23:f3, ethertype EAPOL (0x888e), length 61: EAP pac
+ket (0) v1, len 43, Response (2), id 221, len 43
+                 Type unknown (25)
+        0x0000:  0100 002b 02dd 002b 1900 1703 0100 201b
+        0x0010:  412c b392 ced0 5afc 3f24 c44f 45b6 cd6c
+        0x0020:  5b6a 23f7 3051 d462 341f e5b7 02e0 f8
+
+
+18:52:45.276029 04:f0:21:42:23:f3 > 00:0f:92:fe:00:86, ethertype EAPOL (0x888e), length 22: EAP pac
+ket (0) v2, len 4, Success (3), id 221, len 4		// AP:04:f0:21:42:23:f3 send success to STA(00:0f:92:fe:00:86) after receiving Access-Accept from RADIUS server.
+        0x0000:  0200 0004 03dd 0004
+
+18:52:45.276354 04:f0:21:42:23:f3 > 00:0f:92:fe:00:86, ethertype EAPOL (0x888e), length 135: EAPOL 	//Normal WPA 4-way handshake. 1/4
+key (3) v2, len 117
+        0x0000:  0203 0075 0200 8a00 1000 0000 0000 0000
+        0x0010:  01ca e054 1c77 22ef 991a e969 c554 c1af
+        0x0020:  9389 be36 4fa3 930f b73e acc8 dbef 07f6
+        0x0030:  8c00 0000 0000 0000 0000 0000 0000 0000
+        0x0040:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0050:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0060:  0000 16dd 1400 0fac 0417 f2e2 90e5 9060
+        0x0070:  beb1 3fec 9377 06ed fe
+18:52:45.281663 00:0f:92:fe:00:86 > 04:f0:21:42:23:f3, ethertype EAPOL (0x888e), length 135: EAPOL 	// 2/4
+key (3) v1, len 117
+        0x0000:  0103 0075 0201 0a00 0000 0000 0000 0000
+        0x0010:  01f4 186f c2fe 3c6a 9b2a 2f7d 5c32 dc63
+        0x0020:  9ce5 ba0e 92bc a504 3b3d a4ef a597 1685
+        0x0030:  f400 0000 0000 0000 0000 0000 0000 0000
+        0x0040:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0050:  0037 41bd f2ab 1517 6269 e9e3 c236 95b9
+        0x0060:  a600 1630 1401 0000 0fac 0401 0000 0fac
+        0x0070:  0401 0000 0fac 0100 00
+18:52:45.282594 04:f0:21:42:23:f3 > 00:0f:92:fe:00:86, ethertype EAPOL (0x888e), length 169: EAPOL 	// 3/4
+key (3) v2, len 151
+        0x0000:  0203 0097 0213 ca00 1000 0000 0000 0000
+        0x0010:  02ca e054 1c77 22ef 991a e969 c554 c1af
+        0x0020:  9389 be36 4fa3 930f b73e acc8 dbef 07f6
+        0x0030:  8c00 0000 0000 0000 0000 0000 0000 0000
+        0x0040:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0050:  00b8 e8b6 76f0 c7b6 6ee6 e140 ebf5 7afb
+        0x0060:  fc00 38f7 e956 fa0c 5e52 7f1a 8711 c58b
+        0x0070:  c13e 7d3a 9d80 eda4 f4e9 a3cb 3af9 da0a
+        0x0080:  c5cd 9191 9f8a e0b5 5036 cb4d 67ca 1694
+        0x0090:  f93a 641d 03cd 06b2 0bac f4
+18:52:45.288007 00:0f:92:fe:00:86 > 04:f0:21:42:23:f3, ethertype EAPOL (0x888e), length 113: EAPOL 	// 4/4
+key (3) v1, len 95
+        0x0000:  0103 005f 0203 0a00 0000 0000 0000 0000
+        0x0010:  0200 0000 0000 0000 0000 0000 0000 0000
+        0x0020:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0030:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0040:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0050:  0040 deda 537e 24ab 3cd3 b99f 911d b8b9
+        0x0060:  bd00 00
+18:52:45.852459 00:0f:92:fe:00:86 > 33:33:00:00:00:16, ethertype IPv6 (0x86dd), length 130: (hlim 1
+, next-header Options (0) payload length: 76) fe80::20f:92ff:fefe:86 > ff02::16: HBH (rtalert: 0x00
+00) (padn) [icmp6 sum ok] ICMP6, multicast listener report v2, 3 group record(s) [gaddr ff02::1:ff0
+0:0 to_ex, 0 source(s)] [gaddr ff02::1:fffe:86 to_ex, 0 source(s)] [gaddr ff02::2 to_ex, 0 source(s
+)]
+        0x0000:  6000 0000 004c 0001 fe80 0000 0000 0000
+        0x0010:  020f 92ff fefe 0086 ff02 0000 0000 0000
+        0x0020:  0000 0000 0000 0016 3a00 0502 0000 0100
+        0x0030:  8f00 d5bd 0000 0003 0400 0000 ff02 0000
+        0x0040:  0000 0000 0000 0001 ff00 0000 0400 0000
+        0x0050:  ff02 0000 0000 0000 0000 0001 fffe 0086
+        0x0060:  0400 0000 ff02 0000 0000 0000 0000 0000
+        0x0070:  0000 0002
+18:52:45.852677 00:0f:92:fe:00:86 > 33:33:00:00:00:16, ethertype IPv6 (0x86dd), length 130: (hlim 1
+, next-header Options (0) payload length: 76) fe80::20f:92ff:fefe:86 > ff02::16: HBH (rtalert: 0x00
+00) (padn) [icmp6 sum ok] ICMP6, multicast listener report v2, 3 group record(s) [gaddr ff02::1:ff0
+0:0 to_ex, 0 source(s)] [gaddr ff02::1:fffe:86 to_ex, 0 source(s)] [gaddr ff02::2 to_ex, 0 source(s
+)]
+        0x0000:  6000 0000 004c 0001 fe80 0000 0000 0000
+        0x0010:  020f 92ff fefe 0086 ff02 0000 0000 0000
+        0x0020:  0000 0000 0000 0016 3a00 0502 0000 0100
+        0x0030:  8f00 d5bd 0000 0003 0400 0000 ff02 0000
+        0x0040:  0000 0000 0000 0001 ff00 0000 0400 0000
+        0x0050:  ff02 0000 0000 0000 0000 0001 fffe 0086
+        0x0060:  0400 0000 ff02 0000 0000 0000 0000 0000
+        0x0070:  0000 0002
+
+A PWii set as WPA2-Enterprise, it default use is PEAP. No other settings are allowed.
+
+root@UserDevice:~# cat etc/banner
+===========================================================
+         ____    __      __             
+        /\  _`\ /\ \  __/\ \  __  __    
+        \ \ \L\ \ \ \/\ \ \ \/\_\/\_\   
+         \ \ ,__/\ \ \ \ \ \ \/\ \/\ \  
+          \ \ \/  \ \ \_/ \_\ \ \ \ \ \ 
+           \ \_\   \ `\___x___/\ \_\ \_\
+            \/_/    '\/__//__/  \/_/\/_/
+                                
+     Leaders in Wireless Communication
+ Robust Design|Excellent Sensitivity|Maximum Power                
+ ----------------------------------------------------------
+  * It is time to CHANGE...
+  *
+  * Microhard Systems Inc           www.microhardcorp.com 
+ ----------------------------------------------------------
+ Welcome to "v1.3.0" build "1058"
+ Built time: 2019-10-21 16:18:40
+==============================================================
+root@UserDevice:~# cat var/run/wpa_supplicant-wlan0.conf 
+network={
+        scan_ssid=1
+        ssid="bulletac-jeff"
+
+        key_mgmt=WPA-EAP
+        identity="user1"
+        password="user1-pwd"
+        phase2="auth=MSCHAPV2"
+        eap=PEAP
+        proto=RSN
+}
+root@UserDevice:~# cat etc/config/wireless 
+
+config wifi-device 'radio0'
+        option type 'mac80211'
+        option bwmode '20mHz'
+        option distance '100'
+        option frag '2346'
+        option rts '2346'
+        option fragoff '1'
+        option rtsoff '1'
+        option path 'platform/ar933x_wmac'
+        option txaggr '1'
+        option sgi '1'
+        option noscan '0'
+        option encryptlvl '63'
+        option hwmode '11ng'
+        option channel '1'
+        option htmode 'HT20'
+        option txpower '10'
+        option disabled '0'
+
+config wifi-iface
+        option device 'radio0'
+        option ifname 'wlan0'
+        option network 'lan'
+        option bonding '0'
+        option wmm '1'
+        option rate 'auto'
+        option hidden '0'
+        option isolate '0'
+        option macfilter 'none'
+        option mesh_mpath_agility '50'
+        option mesh_id 'px2-mesh-jeff'
+        option ssid 'bulletac-jeff'
+        option mode 'sta'
+        option wds '0'
+        option identity 'user1'
+        option key 'mysecret'
+        option encryption 'wpa2'
+        option password 'user1-pwd'
+
+
+config UCIMHT 'CHECKTAG'
+        option TM '1571701364'
+        option LRC '02'
+root@UserDevice:~# 
+
+EAP-PEAP(tyoe 25, Protected EAP) is similar with EAP-TTLS(type 21, Tunneled TLS). These 2 methods can work with old authrization mechanisms. First, they set up a TLS tunnel like what EAP-TLS does. Before moving to next stey, it uses the authentication server's certificate to trust this network. Second, use TLS tunnel to encrypt the old authentication method, then authenticate the user. The first step is called "outer" authentication and the second "inner".
+
+A certificate is still needed but only the outer authentication needs that.Only the authentication server (radius server?) needs a certificate, not all the end users! The minor difference between TTLS and PEAP is that the inner authentication. TTLS uses the encrypted channel to exchange "attribute-value pair"(AVP). PEAP uses the encrypted channel to do a second EAP exchange. PWii G3 default uses MSCHAPV2 as inner method.
+
+On EAP-TLS, both sides require a certificate. With a client-side certificate, a compromised password is not enough to break into EAP-TLS enabled systems because the intruder still needs to have the client-side certificate. (JLI : client is supplicant)
+
+On EAP-TTLS, After the server is securely authenticated to the client via its(server?) CA certificate and optionally the client to the server, the server can then use the established secure connection ("tunnel") to authenticate the client. 如果服务器需要确认客户端的身份，就会再包含一项请求在ServerHello中，要求客户端提供"客户端证书"。比如，金融机构往往只允许认证客户连入自己的网络，就会向正式客户提供USB密钥，里面就包含了一张客户端证书。
+
+PEAP is an encapsulation, is not a method. PEAP is similar in design to EAP-TTLS, requiring only a server-side PKI certificate to create a secure TLS tunnel to protect user authentication, and uses server-side public key certificates to authenticate the server. It then creates an encrypted TLS tunnel between the client and the authentication server.
+
+The difference is: PEAP is a SSL wrapper around EAP carrying EAP. TTLS is a SSL wrapper around diameter TLVs (Type Length Values) carrying RADIUS authentication attributes.
+
+The Radius log:
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=78, length=200	//168.3 is the AP IP addr, authenticator.
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"	// G5 AP MAC addr and SSID.
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"		// PWii STA's MAC addr.
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x0294000a017573657231
+	Message-Authenticator = 0x4ce853f71bcdc1d677b505c8ac8e058b
+Tue Nov 26 15:44:41 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authorize {
+Tue Nov 26 15:44:41 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:41 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:41 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP packet type response id 148 length 10
+Tue Nov 26 15:44:41 2019 : Info: [eap] No EAP Start, assuming it's an on-going EAP conversation
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = updated
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: %{User-Name} -> user1
+Tue Nov 26 15:44:41 2019 : Info: [sql] sql_set_user escaped user --> 'user1'
+Tue Nov 26 15:44:41 2019 : Debug: rlm_sql (sql): Reserving sql socket id: 27
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: SELECT id, username, attribute, value, op           FROM radcheck           WHERE username = '%{SQL-User-Name}'           ORDER BY id -> SELECT id, username, attribute, value, op           FROM radcheck           WHERE username = 'user1'           ORDER BY id
+Tue Nov 26 15:44:41 2019 : Info: [sql] User found in radcheck table
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: SELECT id, username, attribute, value, op           FROM radreply           WHERE username = '%{SQL-User-Name}'           ORDER BY id -> SELECT id, username, attribute, value, op           FROM radreply           WHERE username = 'user1'           ORDER BY id
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: SELECT groupname           FROM radusergroup           WHERE username = '%{SQL-User-Name}'           ORDER BY priority -> SELECT groupname           FROM radusergroup           WHERE username = 'user1'           ORDER BY priority
+Tue Nov 26 15:44:41 2019 : Debug: rlm_sql (sql): Released sql socket id: 27
+Tue Nov 26 15:44:41 2019 : Info: ++[sql] = ok
+Tue Nov 26 15:44:41 2019 : Info: ++[expiration] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[logintime] = noop
+Tue Nov 26 15:44:41 2019 : Info: [pap] WARNING: Auth-Type already set.  Not setting to PAP
+Tue Nov 26 15:44:41 2019 : Info: ++[pap] = noop
+Tue Nov 26 15:44:41 2019 : Info: +} # group authorize = updated
+Tue Nov 26 15:44:41 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:41 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP Identity
+Tue Nov 26 15:44:41 2019 : Info: [eap] processing type md5
+Tue Nov 26 15:44:41 2019 : Debug: rlm_eap_md5: Issuing Challenge
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:41 2019 : Info: +} # group authenticate = handled
+
+// Send MD5 challenge. All EAP must support MD5 challenge.[This maybe the MD5 hash value of user1's password.]
+Sending Access-Challenge of id 78 to 192.168.168.3 port 54002
+	EAP-Message = 0x01950016041025781740eb27f67eda00906ea6fd0f51
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db565529744a436dbbde670ca
+Tue Nov 26 15:44:41 2019 : Info: Finished request 10.
+Tue Nov 26 15:44:41 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:41 2019 : Debug: Waking up in 4.9 seconds.
+
+// Received EAP-Response/Method from AP. [This maybe MD5 hash calculated by STA from user1's password.]
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=79, length=214
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029500060319
+	State = 0xb5f0560db565529744a436dbbde670ca
+	Message-Authenticator = 0xb86a2f450713ebb561416286be193866
+Tue Nov 26 15:44:41 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authorize {
+Tue Nov 26 15:44:41 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:41 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:41 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP packet type response id 149 length 6
+Tue Nov 26 15:44:41 2019 : Info: [eap] No EAP Start, assuming it's an on-going EAP conversation
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = updated
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: %{User-Name} -> user1
+Tue Nov 26 15:44:41 2019 : Info: [sql] sql_set_user escaped user --> 'user1'
+Tue Nov 26 15:44:41 2019 : Debug: rlm_sql (sql): Reserving sql socket id: 26
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: SELECT id, username, attribute, value, op           FROM radcheck           WHERE username = '%{SQL-User-Name}'           ORDER BY id -> SELECT id, username, attribute, value, op           FROM radcheck           WHERE username = 'user1'           ORDER BY id
+Tue Nov 26 15:44:41 2019 : Info: [sql] User found in radcheck table
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: SELECT id, username, attribute, value, op           FROM radreply           WHERE username = '%{SQL-User-Name}'           ORDER BY id -> SELECT id, username, attribute, value, op           FROM radreply           WHERE username = 'user1'           ORDER BY id
+Tue Nov 26 15:44:41 2019 : Info: [sql] 	expand: SELECT groupname           FROM radusergroup           WHERE username = '%{SQL-User-Name}'           ORDER BY priority -> SELECT groupname           FROM radusergroup           WHERE username = 'user1'           ORDER BY priority
+Tue Nov 26 15:44:41 2019 : Debug: rlm_sql (sql): Released sql socket id: 26
+Tue Nov 26 15:44:41 2019 : Info: ++[sql] = ok
+Tue Nov 26 15:44:41 2019 : Info: ++[expiration] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[logintime] = noop
+Tue Nov 26 15:44:41 2019 : Info: [pap] WARNING: Auth-Type already set.  Not setting to PAP
+Tue Nov 26 15:44:41 2019 : Info: ++[pap] = noop
+Tue Nov 26 15:44:41 2019 : Info: +} # group authorize = updated
+Tue Nov 26 15:44:41 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:41 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:41 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP NAK
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP-NAK asked for EAP-Type/peap
+Tue Nov 26 15:44:41 2019 : Info: [eap] processing type tls
+Tue Nov 26 15:44:41 2019 : Info: [tls] Initiate
+Tue Nov 26 15:44:41 2019 : Info: [tls] Start returned 1
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:41 2019 : Info: +} # group authenticate = handled
+
+
+// Set up outer PEAP method.
+Sending Access-Challenge of id 79 to 192.168.168.3 port 54002
+	EAP-Message = 0x019600061920
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db4664f9744a436dbbde670ca
+Tue Nov 26 15:44:41 2019 : Info: Finished request 11.
+Tue Nov 26 15:44:41 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:41 2019 : Debug: Waking up in 4.9 seconds.
+
+
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=80, length=290
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x0296005219800000004816030100430100003f03015dae8deba208ad7ba5a64b5e25283330959a2bc0832812ed34e9f3b872221baf000018006b003d003900350067003c0033002f0016000a000500040100
+	State = 0xb5f0560db4664f9744a436dbbde670ca
+	Message-Authenticator = 0xcb977d5ce3bc0188adef32025f0212f2
+Tue Nov 26 15:44:41 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authorize {
+Tue Nov 26 15:44:41 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:41 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:41 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP packet type response id 150 length 82
+Tue Nov 26 15:44:41 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:41 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:41 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:41 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:41 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:41 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:41 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:41 2019 : Debug:   TLS Length 72
+Tue Nov 26 15:44:41 2019 : Info: [peap] Length Included
+Tue Nov 26 15:44:41 2019 : Info: [peap] eaptls_verify returned 11 
+Tue Nov 26 15:44:41 2019 : Info: [peap]     (other): before/accept initialization
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: before/accept initialization
+Tue Nov 26 15:44:41 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:41 2019 : Info: [peap] <<< TLS 1.0 Handshake [length 0043], ClientHello  
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> TLS 1.0 Handshake [length 002a], ServerHello  
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> TLS 1.0 Handshake [length 02d6], Certificate  
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> TLS 1.0 Handshake [length 020d], ServerKeyExchange  
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:41 2019 : Info: [peap] >>> TLS 1.0 Handshake [length 0004], ServerHelloDone  
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: Need to read more data: unknown state
+Tue Nov 26 15:44:41 2019 : Info: [peap]     TLS_accept: Need to read more data: unknown state
+Tue Nov 26 15:44:41 2019 : Debug: In SSL Handshake Phase 
+Tue Nov 26 15:44:41 2019 : Debug: In SSL Accept mode  
+Tue Nov 26 15:44:41 2019 : Info: [peap] eaptls_process returned 13 
+Tue Nov 26 15:44:41 2019 : Info: [peap] EAPTLS_HANDLED
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:41 2019 : Info: +} # group authenticate = handled
+
+
+
+Sending Access-Challenge of id 80 to 192.168.168.3 port 54002
+	EAP-Message = 0x0197040019c000000525160301002a0200002603011e1c521a63472cc9f8131e73a51043866de635fd0ea684da6d3816e3c2b3741e0000390016030102d60b0002d20002cf0002cc308202c8308201b0a003020102020900a8bb974084515054300d06092a864886f70d01010b0500301c311a301806035504030c116a6c692d4f707469506c65782d37303630301e170d3139313132313137353733335a170d3239313131383137353733335a301c311a301806035504030c116a6c692d4f707469506c65782d3730363030820122300d06092a864886f70d01010105000382010f003082010a0282010100ecde3b2f32d6878185a84d302f0efc2be1
+	EAP-Message = 0xf5451004def0918745d76176a7aebc20d7d40f22b501ecf8f81d1ac9e10dce58ce43e2af157718adc68b7588b38fbf6d7449e66ff4dc48072a28c4692fd423b7b1222e623634393af50cea411cc82666c87dd99ced8b0ce163bb437cd468aca756143e461d3236dbfc9f9ada290060f59fac54e60e80bc4bbda7bf52eb1d77dcd88cdb2b1425df6862e51fd18095d7ee25b7ec89763940e7fe6cc09078bb3745cc385a7fb8e5c669909318225d74486132e2ccaf80c7f42deaef09f01568c416e01b124016707c54535583849afcd690108e8bda0f74a40d30735d7e26a3539fce4f5645e9c11f3f986af9b40e54550203010001a30d300b3009060355
+	EAP-Message = 0x1d1304023000300d06092a864886f70d01010b05000382010100819784311b09eaad7d9c2619b7622bd5bda3ef9527787b118d6cc7f5062753bcf60f87cbb70c4410475cc8daf2cbad2f93d66d88faa333ff9fee1c5abe100c665c8ef7ba57b449465b3e1994b0e1b6876ed1d897e7b355e1df3222a0e4484a9bd2e93ad768a6d8c03273db50903adb55ca1e4daee9e759fb83d31ca1b41039870f9792d3a29a27ec0852d57810aa891977b38eb5b8c1f01d163b70eee588c615218b294646a5600c3809b9fb5b0d7f4d35e32aa5d0794250ed357ad3632731a8181cd4040aab1af917addf221d73a53cce3bd5a20496918aab7584ab835bc65c215c7b
+	EAP-Message = 0x08cbb512f3b5a7f5371ecd94149f01a3700f2c45ed91dcd7e5fab23ddf160301020d0c0002090080a183f972d635e75afa2d79a753f01845cfd70e128da4217f032f3471d52b957995ee05cb8c0910e18b87a262da86e5588b9e7cc675c679813bace3a4b1e026b2996aca7872237f2c925031974ce1cb789f63472833bc0965986e70d51a1290f85cdf350b04362b993949a00f57bf6490b2d954ca784d5b277ee5e6e6a0cc0953000102008096c5d05ba7c7cbbd0ce2f987dd72f16e11a4cec518a647bd5f26d2351593c993cb00e3a25364c8f1c851df0d8075386760e1df0dca2f75d947046c3b8d30be3e9cc291a07a5721113d67b4e75df65022
+	EAP-Message = 0xafeee4ba42c8a01d5457aa1e
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db7674f9744a436dbbde670ca
+Tue Nov 26 15:44:41 2019 : Info: Finished request 12.
+Tue Nov 26 15:44:41 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:41 2019 : Debug: Waking up in 4.9 seconds.
+
+
+
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=81, length=214
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029700061900
+	State = 0xb5f0560db7674f9744a436dbbde670ca
+	Message-Authenticator = 0x281c6f68d089a44deed591df9f46cb9a
+Tue Nov 26 15:44:41 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authorize {
+Tue Nov 26 15:44:41 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:41 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:41 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:41 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:41 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP packet type response id 151 length 6
+Tue Nov 26 15:44:41 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:41 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:41 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:41 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:41 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:41 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:41 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:41 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:41 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:41 2019 : Info: [peap] Received TLS ACK
+Tue Nov 26 15:44:41 2019 : Info: [peap] ACK handshake fragment handler
+Tue Nov 26 15:44:41 2019 : Info: [peap] eaptls_verify returned 1 
+Tue Nov 26 15:44:41 2019 : Info: [peap] eaptls_process returned 13 
+Tue Nov 26 15:44:41 2019 : Info: [peap] EAPTLS_HANDLED
+Tue Nov 26 15:44:41 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:41 2019 : Info: +} # group authenticate = handled
+
+
+
+Sending Access-Challenge of id 81 to 192.168.168.3 port 54002
+	EAP-Message = 0x01980135190001b741722df521fd8df49ca76a4b367310d96ea47f4ffa7a1e3d69ba25f0d47724f0253701002183aa4e06c8444fe9c99b7905d951699c3578baac285bc9b6663bbb16c038792994f604b716c3aa8ee79c56f53cc666b1a66255eb0e212aa5b941e82b1a088a3f557d9bdcd9171a89d821bc7da1a4cb380c745e52671066d8d653d61fa01fe34cf4bc716f2e6764dcca67e92f33896dfca1a7c25c3d39d48c26fbebfa04a7a90b8ef807a775670ae62b11e1351fab0412e743025795adfde8d88dc6a03ee9caffd6620c8c40f453da63a27677a69d2c2e527cb0c8cd613b8c7236111d345f9bf828207859351c3b1ba980b506f686a9eb
+	EAP-Message = 0xf9408b702e5ac0d4a205ef9aaafae9a3ded8ef7034b4eda2d95289ed5779fffa7290b8b651f3a37d29c4842499f4f316030100040e000000
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db6684f9744a436dbbde670ca
+Tue Nov 26 15:44:41 2019 : Info: Finished request 13.
+Tue Nov 26 15:44:41 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:41 2019 : Debug: Waking up in 4.9 seconds.
+
+
+
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=82, length=416
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029800d01980000000c616030100861000008200803b9dcfc4f2b7dacfe5e1610c03f23951f96eaae1483e8377281bc3eec50436328f5eb1e852a4a7387ed160276ca2cd64903876484422eeb29478c731e01a81c94253e3767b468c32675c08921534743e1a17d5c8ba2c857b7c28e78e094df2ccd7889495734bdd97cf9c214221f826cfc877f4250944d410582654c9a9e4f7ad1403010001011603010030815f823340341952149fc9aa2fc5eeb226c308029226fc6dfa752fdc99dcb6fd9010425f14fa73c7830d19d81504c4a9
+	State = 0xb5f0560db6684f9744a436dbbde670ca
+	Message-Authenticator = 0x46235aae1e5788b8667df1713fe6b5b9
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 152 length 208
+Tue Nov 26 15:44:42 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:42 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:42 2019 : Debug:   TLS Length 198
+Tue Nov 26 15:44:42 2019 : Info: [peap] Length Included
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_verify returned 11 
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< TLS 1.0 Handshake [length 0086], ClientKeyExchange  
+Tue Nov 26 15:44:42 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:42 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< TLS 1.0 ChangeCipherSpec [length 0001]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< TLS 1.0 Handshake [length 0010], Finished  
+Tue Nov 26 15:44:42 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> TLS 1.0 ChangeCipherSpec [length 0001]  
+Tue Nov 26 15:44:42 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> TLS 1.0 Handshake [length 0010], Finished  
+Tue Nov 26 15:44:42 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:42 2019 : Info: [peap]     TLS_accept: unknown state
+Tue Nov 26 15:44:42 2019 : Info: [peap]     (other): SSL negotiation finished successfully
+Tue Nov 26 15:44:42 2019 : Debug: SSL Connection Established 
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_process returned 13 
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAPTLS_HANDLED
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = handled
+
+
+
+Sending Access-Challenge of id 82 to 192.168.168.3 port 54002
+	EAP-Message = 0x01990041190014030100010116030100301611fd77a490320fd7d83decaa4f362df8ae4b4ab4ee7cf573d2a88533f9ac8c03ef0e05e1842e03de4b897950e15f5d
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db1694f9744a436dbbde670ca
+Tue Nov 26 15:44:42 2019 : Info: Finished request 14.
+Tue Nov 26 15:44:42 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:42 2019 : Debug: Waking up in 4.2 seconds.
+
+
+
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=83, length=214
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029900061900
+	State = 0xb5f0560db1694f9744a436dbbde670ca
+	Message-Authenticator = 0x5a4bd90c9e92d41dd142e065275042c3
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 153 length 6
+Tue Nov 26 15:44:42 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:42 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:42 2019 : Info: [peap] Received TLS ACK
+Tue Nov 26 15:44:42 2019 : Info: [peap] ACK handshake is finished
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_verify returned 3 
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_process returned 3 
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAPTLS_SUCCESS
+Tue Nov 26 15:44:42 2019 : Info: [peap] Session established.  Decoding tunneled attributes.
+Tue Nov 26 15:44:42 2019 : Info: [peap] Peap state TUNNEL ESTABLISHED
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = handled
+
+
+
+Sending Access-Challenge of id 83 to 192.168.168.3 port 54002
+	EAP-Message = 0x019a002b1900170301002046f7572ce19dde246e46c3de3aa9aaae3b0634f159e69b91d9b65c3011523366
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db06a4f9744a436dbbde670ca
+Tue Nov 26 15:44:42 2019 : Info: Finished request 15.
+Tue Nov 26 15:44:42 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:42 2019 : Debug: Waking up in 4.2 seconds.
+
+
+
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=84, length=251
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029a002b19001703010020d4513ff2bbf243c2eb8cebca093dd6619b1ced09c34ef7875edff7ff1e448b58
+	State = 0xb5f0560db06a4f9744a436dbbde670ca
+	Message-Authenticator = 0x367b3394819f62f82b89dd9d58d845b3
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 154 length 43
+Tue Nov 26 15:44:42 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:42 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_verify returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] Done initial handshake
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_process returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAPTLS_OK
+Tue Nov 26 15:44:42 2019 : Info: [peap] Session established.  Decoding tunneled attributes.
+Tue Nov 26 15:44:42 2019 : Info: [peap] Peap state WAITING FOR INNER IDENTITY
+Tue Nov 26 15:44:42 2019 : Info: [peap] Identity - user1
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got inner identity 'user1'
+Tue Nov 26 15:44:42 2019 : Info: [peap] Setting default EAP type for tunneled EAP session.
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled request
+	EAP-Message = 0x029a000a017573657231
+server  {
+Tue Nov 26 15:44:42 2019 : Info: [peap] Setting User-Name to user1
+Sending tunneled request
+	EAP-Message = 0x029a000a017573657231
+	FreeRADIUS-Proxied-To = 127.0.0.1
+	User-Name = "user1"
+server inner-tunnel {
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++update control {
+Tue Nov 26 15:44:42 2019 : Info: ++} # update control = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 154 length 10
+Tue Nov 26 15:44:42 2019 : Info: [eap] No EAP Start, assuming it's an on-going EAP conversation
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = updated
+Tue Nov 26 15:44:42 2019 : Info: [files] users: Matched entry user1 at line 206
+Tue Nov 26 15:44:42 2019 : Info: ++[files] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[expiration] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[logintime] = noop
+Tue Nov 26 15:44:42 2019 : Info: [pap] WARNING: Auth-Type already set.  Not setting to PAP
+Tue Nov 26 15:44:42 2019 : Info: ++[pap] = noop
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = updated
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP Identity
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type mschapv2
+Tue Nov 26 15:44:42 2019 : Debug: rlm_eap_mschapv2: Issuing Challenge
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = handled
+} # server inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled reply code 11
+	EAP-Message = 0x019b001f1a019b001a104fc275362838287843230c0257213b1a7573657231
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xed57a02eedccba97f246533dfe39229e
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled reply RADIUS code Access-Challenge
+	EAP-Message = 0x019b001f1a019b001a104fc275362838287843230c0257213b1a7573657231
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xed57a02eedccba97f246533dfe39229e
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled Access-Challenge
+  PEAP tunnel data out 0000: 1a 01 9b 00 1a 10 4f c2 75 36 28 38 28 78 43 23 
+  PEAP tunnel data out 0010: 0c 02 57 21 3b 1a 75 73 65 72 31 
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = handled
+
+
+
+Sending Access-Challenge of id 84 to 192.168.168.3 port 54002
+	EAP-Message = 0x019b003b19001703010030381f5e4f6e1996bebec6e72c40bb34bf15d75eb06575b28fb71ee9c6b92072b311d09cd196ca44118655f3f851bcffff
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db36b4f9744a436dbbde670ca
+Tue Nov 26 15:44:42 2019 : Info: Finished request 16.
+Tue Nov 26 15:44:42 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:42 2019 : Debug: Waking up in 4.1 seconds.
+
+
+
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=85, length=315
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029b006b19001703010060794d544173e3f5529895160b5a36e9a6b2dbfec6899f4a59681f38e016e73800b76b5aba39a7687f3d7f8286a74a9bad417eebcf0ba32632f8148934e01035a5dcd438ed854014a3fcb92507ea5b135f4b0612fc6eea4b41a6a59d0fde9bf64e
+	State = 0xb5f0560db36b4f9744a436dbbde670ca
+	Message-Authenticator = 0x56fb518133029165564f4be24a818d29
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 155 length 107
+Tue Nov 26 15:44:42 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:42 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_verify returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] Done initial handshake
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_process returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAPTLS_OK
+Tue Nov 26 15:44:42 2019 : Info: [peap] Session established.  Decoding tunneled attributes.
+Tue Nov 26 15:44:42 2019 : Info: [peap] Peap state phase2
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAP type mschapv2
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled request
+	EAP-Message = 0x029b00401a029b003b3104c35ef824220d81dfbb1cf9d15dd8f600000000000000008db246d9cbf082a02ed2ee695a03dfcba79e2c9481a71caf007573657231
+server  {
+Tue Nov 26 15:44:42 2019 : Info: [peap] Setting User-Name to user1
+Sending tunneled request
+	EAP-Message = 0x029b00401a029b003b3104c35ef824220d81dfbb1cf9d15dd8f600000000000000008db246d9cbf082a02ed2ee695a03dfcba79e2c9481a71caf007573657231
+	FreeRADIUS-Proxied-To = 127.0.0.1
+	User-Name = "user1"
+	State = 0xed57a02eedccba97f246533dfe39229e
+server inner-tunnel {
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++update control {
+Tue Nov 26 15:44:42 2019 : Info: ++} # update control = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 155 length 64
+Tue Nov 26 15:44:42 2019 : Info: [eap] No EAP Start, assuming it's an on-going EAP conversation
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = updated
+Tue Nov 26 15:44:42 2019 : Info: [files] users: Matched entry user1 at line 206
+Tue Nov 26 15:44:42 2019 : Info: ++[files] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[expiration] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[logintime] = noop
+Tue Nov 26 15:44:42 2019 : Info: [pap] WARNING: Auth-Type already set.  Not setting to PAP
+Tue Nov 26 15:44:42 2019 : Info: ++[pap] = noop
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = updated
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/mschapv2
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type mschapv2
+Tue Nov 26 15:44:42 2019 : Info: [mschapv2] # Executing group from file /etc/freeradius/sites-enabled/inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: [mschapv2] +group MS-CHAP {
+Tue Nov 26 15:44:42 2019 : Info: [mschap] Creating challenge hash with username: user1
+Tue Nov 26 15:44:42 2019 : Info: [mschap] Client is using MS-CHAPv2 for user1, we need NT-Password
+Tue Nov 26 15:44:42 2019 : Info: [mschap] adding MS-CHAPv2 MPPE keys
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group MS-CHAP = ok
+Tue Nov 26 15:44:42 2019 : Debug: MSCHAP Success 
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = handled
+} # server inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled reply code 11
+	EAP-Message = 0x019c00331a039b002e533d41374143374142383432394235423439324537384538433036324236303634384631413443434146
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xed57a02eeccbba97f246533dfe39229e
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled reply RADIUS code Access-Challenge
+	EAP-Message = 0x019c00331a039b002e533d41374143374142383432394235423439324537384538433036324236303634384631413443434146
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xed57a02eeccbba97f246533dfe39229e
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled Access-Challenge
+  PEAP tunnel data out 0000: 1a 03 9b 00 2e 53 3d 41 37 41 43 37 41 42 38 34 
+  PEAP tunnel data out 0010: 32 39 42 35 42 34 39 32 45 37 38 45 38 43 30 36 
+  PEAP tunnel data out 0020: 32 42 36 30 36 34 38 46 31 41 34 43 43 41 46 
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = handled
+
+
+
+Sending Access-Challenge of id 85 to 192.168.168.3 port 54002
+	EAP-Message = 0x019c005b1900170301005085a6e21babf886846f06fbbff631b1833eb2061b3bf95ea505a8d8225e4192e79feb591bb551977f08ef90712e9ab3270554517e8573984599ee4d09f7ad7eec990664f24d088fc515f2444da763bd2f
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560db26c4f9744a436dbbde670ca
+Tue Nov 26 15:44:42 2019 : Info: Finished request 17.
+Tue Nov 26 15:44:42 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:42 2019 : Debug: Waking up in 4.1 seconds.
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=86, length=251
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029c002b190017030100204a88be3d8d7807b0e11811f15a715f271b3fc0a76d60f77d99725a80a6c2baf5
+	State = 0xb5f0560db26c4f9744a436dbbde670ca
+	Message-Authenticator = 0x04c7ad2ce89111d85e85837509ac1991
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 156 length 43
+Tue Nov 26 15:44:42 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:42 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_verify returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] Done initial handshake
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_process returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAPTLS_OK
+Tue Nov 26 15:44:42 2019 : Info: [peap] Session established.  Decoding tunneled attributes.
+Tue Nov 26 15:44:42 2019 : Info: [peap] Peap state phase2
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAP type mschapv2
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled request
+	EAP-Message = 0x029c00061a03
+server  {
+Tue Nov 26 15:44:42 2019 : Info: [peap] Setting User-Name to user1
+Sending tunneled request
+	EAP-Message = 0x029c00061a03
+	FreeRADIUS-Proxied-To = 127.0.0.1
+	User-Name = "user1"
+	State = 0xed57a02eeccbba97f246533dfe39229e
+server inner-tunnel {
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++update control {
+Tue Nov 26 15:44:42 2019 : Info: ++} # update control = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 156 length 6
+Tue Nov 26 15:44:42 2019 : Info: [eap] No EAP Start, assuming it's an on-going EAP conversation
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = updated
+Tue Nov 26 15:44:42 2019 : Info: [files] users: Matched entry user1 at line 206
+Tue Nov 26 15:44:42 2019 : Info: ++[files] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[expiration] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[logintime] = noop
+Tue Nov 26 15:44:42 2019 : Info: [pap] WARNING: Auth-Type already set.  Not setting to PAP
+Tue Nov 26 15:44:42 2019 : Info: ++[pap] = noop
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = updated
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/mschapv2
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type mschapv2
+Tue Nov 26 15:44:42 2019 : Info: [eap] Freeing handler
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = ok
+Tue Nov 26 15:44:42 2019 : Info:   WARNING: Empty post-auth section.  Using default return values.
+Tue Nov 26 15:44:42 2019 : Info: # Executing section post-auth from file /etc/freeradius/sites-enabled/inner-tunnel
+} # server inner-tunnel
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled reply code 2
+	MS-MPPE-Encryption-Policy = 0x00000001
+	MS-MPPE-Encryption-Types = 0x00000006
+	MS-MPPE-Send-Key = 0x1dbc4aa5fe2e71610552f93e842e4ef8
+	MS-MPPE-Recv-Key = 0x8b1199f979fb43af2c25bd3b654f8d08
+	EAP-Message = 0x039c0004
+	Message-Authenticator = 0x00000000000000000000000000000000
+	User-Name = "user1"
+Tue Nov 26 15:44:42 2019 : Info: [peap] Got tunneled reply RADIUS code Access-Accept
+	MS-MPPE-Encryption-Policy = 0x00000001
+	MS-MPPE-Encryption-Types = 0x00000006
+	MS-MPPE-Send-Key = 0x1dbc4aa5fe2e71610552f93e842e4ef8
+	MS-MPPE-Recv-Key = 0x8b1199f979fb43af2c25bd3b654f8d08
+	EAP-Message = 0x039c0004
+	Message-Authenticator = 0x00000000000000000000000000000000
+	User-Name = "user1"
+Tue Nov 26 15:44:42 2019 : Info: [peap] Tunneled authentication was successful.
+Tue Nov 26 15:44:42 2019 : Info: [peap] SUCCESS
+Tue Nov 26 15:44:42 2019 : Info: [peap] >>> Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = handled
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = handled
+Sending Access-Challenge of id 86 to 192.168.168.3 port 54002
+	EAP-Message = 0x019d002b19001703010020a99e8a64737e15e616b07c27a67610ce852e8b60bf7d4a23b7c8b5c21f781312
+	Message-Authenticator = 0x00000000000000000000000000000000
+	State = 0xb5f0560dbd6d4f9744a436dbbde670ca
+Tue Nov 26 15:44:42 2019 : Info: Finished request 18.
+Tue Nov 26 15:44:42 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:42 2019 : Debug: Waking up in 4.1 seconds.
+
+
+
+rad_recv: Access-Request packet from host 192.168.168.3 port 54002, id=87, length=251
+	User-Name = "user1"
+	NAS-Identifier = "myNAS"
+	Called-Station-Id = "04-F0-21-42-23-F3:bulletac-jeff"
+	NAS-Port-Type = Wireless-802.11
+	Service-Type = Framed-User
+	NAS-Port = 1
+	Calling-Station-Id = "00-0F-92-FE-00-86"
+	Connect-Info = "CONNECT 54Mbps 802.11g"
+	Acct-Session-Id = "FBC1081CA4C85162"
+	WLAN-Pairwise-Cipher = 1027076
+	WLAN-Group-Cipher = 1027076
+	WLAN-AKM-Suite = 1027073
+	Framed-MTU = 1400
+	EAP-Message = 0x029d002b19001703010020f7f01f331019eda9fba5ca264be489bc75bec6e3de054e0aa9b263fd790985f7
+	State = 0xb5f0560dbd6d4f9744a436dbbde670ca
+	Message-Authenticator = 0x4f4cac3e8501c3bb699671396bc0791c
+Tue Nov 26 15:44:42 2019 : Info: # Executing section authorize from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authorize {
+Tue Nov 26 15:44:42 2019 : Info: ++[preprocess] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[chap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[mschap] = noop
+Tue Nov 26 15:44:42 2019 : Info: ++[digest] = noop
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No '@' in User-Name = "user1", looking up realm NULL
+Tue Nov 26 15:44:42 2019 : Info: [suffix] No such realm "NULL"
+Tue Nov 26 15:44:42 2019 : Info: ++[suffix] = noop
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP packet type response id 157 length 43
+Tue Nov 26 15:44:42 2019 : Info: [eap] Continuing tunnel setup.
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authorize = ok
+Tue Nov 26 15:44:42 2019 : Info: Found Auth-Type = EAP
+Tue Nov 26 15:44:42 2019 : Info: # Executing group from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group authenticate {
+Tue Nov 26 15:44:42 2019 : Info: [eap] Request found, released from the list
+Tue Nov 26 15:44:42 2019 : Info: [eap] EAP/peap
+Tue Nov 26 15:44:42 2019 : Info: [eap] processing type peap
+Tue Nov 26 15:44:42 2019 : Info: [peap] processing EAP-TLS
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_verify returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] Done initial handshake
+Tue Nov 26 15:44:42 2019 : Info: [peap] <<< Unknown TLS version [length 0005]  
+Tue Nov 26 15:44:42 2019 : Info: [peap] eaptls_process returned 7 
+Tue Nov 26 15:44:42 2019 : Info: [peap] EAPTLS_OK
+Tue Nov 26 15:44:42 2019 : Info: [peap] Session established.  Decoding tunneled attributes.
+Tue Nov 26 15:44:42 2019 : Info: [peap] Peap state send tlv success
+Tue Nov 26 15:44:42 2019 : Info: [peap] Received EAP-TLV response.
+Tue Nov 26 15:44:42 2019 : Info: [peap] Success
+Tue Nov 26 15:44:42 2019 : Info: [eap] Freeing handler
+Tue Nov 26 15:44:42 2019 : Info: ++[eap] = ok
+Tue Nov 26 15:44:42 2019 : Info: +} # group authenticate = ok
+Tue Nov 26 15:44:42 2019 : Info: # Executing section post-auth from file /etc/freeradius/sites-enabled/default
+Tue Nov 26 15:44:42 2019 : Info: +group post-auth {
+Tue Nov 26 15:44:42 2019 : Info: [sql] 	expand: %{User-Name} -> user1
+Tue Nov 26 15:44:42 2019 : Info: [sql] sql_set_user escaped user --> 'user1'
+Tue Nov 26 15:44:42 2019 : Info: [sql] 	expand: %{User-Password} -> 
+Tue Nov 26 15:44:42 2019 : Info: [sql] 	... expanding second conditional
+Tue Nov 26 15:44:42 2019 : Info: [sql] 	expand: %{Chap-Password} -> 
+Tue Nov 26 15:44:42 2019 : Info: [sql] 	expand: INSERT INTO radpostauth                           (username, pass, reply, authdate)                           VALUES (                           '%{User-Name}',                           '%{%{User-Password}:-%{Chap-Password}}',                           '%{reply:Packet-Type}', '%S') -> INSERT INTO radpostauth                           (username, pass, reply, authdate)                           VALUES (                           'user1',                           '',                           'Access-Accept', '2019-11-26 15:44:42')
+Tue Nov 26 15:44:42 2019 : Debug: rlm_sql (sql) in sql_postauth: query is INSERT INTO radpostauth                           (username, pass, reply, authdate)                           VALUES (                           'user1',                           '',                           'Access-Accept', '2019-11-26 15:44:42')
+Tue Nov 26 15:44:42 2019 : Debug: rlm_sql (sql): Reserving sql socket id: 25
+Tue Nov 26 15:44:42 2019 : Debug: rlm_sql (sql): Released sql socket id: 25
+Tue Nov 26 15:44:42 2019 : Info: ++[sql] = ok
+Tue Nov 26 15:44:42 2019 : Info: ++[exec] = noop
+Tue Nov 26 15:44:42 2019 : Info: +} # group post-auth = ok
+
+
+
+Sending Access-Accept of id 87 to 192.168.168.3 port 54002
+	MS-MPPE-Recv-Key = 0xf139cf209632504a86d03698bceafbb1452f9ab558052f55401484c0540409cd
+	MS-MPPE-Send-Key = 0x4c7909c0a52d057239d29eb3dd2f383bb5450ef300ec86a1eadcb91f33cd5893
+	EAP-Message = 0x039d0004
+	Message-Authenticator = 0x00000000000000000000000000000000
+	User-Name = "user1"
+Tue Nov 26 15:44:42 2019 : Info: Finished request 19.
+Tue Nov 26 15:44:42 2019 : Debug: Going to the next request
+Tue Nov 26 15:44:42 2019 : Debug: Waking up in 4.1 seconds.
+Tue Nov 26 15:44:46 2019 : Info: Cleaning up request 10 ID 78 with timestamp +76
+Tue Nov 26 15:44:46 2019 : Info: Cleaning up request 11 ID 79 with timestamp +76
+Tue Nov 26 15:44:46 2019 : Info: Cleaning up request 12 ID 80 with timestamp +76
+Tue Nov 26 15:44:46 2019 : Info: Cleaning up request 13 ID 81 with timestamp +76
+Tue Nov 26 15:44:46 2019 : Debug: Waking up in 0.7 seconds.
+Tue Nov 26 15:44:47 2019 : Info: Cleaning up request 14 ID 82 with timestamp +77
+Tue Nov 26 15:44:47 2019 : Info: Cleaning up request 15 ID 83 with timestamp +77
+Tue Nov 26 15:44:47 2019 : Info: Cleaning up request 16 ID 84 with timestamp +77
+Tue Nov 26 15:44:47 2019 : Info: Cleaning up request 17 ID 85 with timestamp +77
+Tue Nov 26 15:44:47 2019 : Info: Cleaning up request 18 ID 86 with timestamp +77
+Tue Nov 26 15:44:47 2019 : Info: Cleaning up request 19 ID 87 with timestamp +77
+Tue Nov 26 15:44:47 2019 : Info: Ready to process requests.
+
+
+
+
+Nov 25, 2019
+Cleanup pMDDL reset-to-default channel:
+
+Product		iw phy0 info			WebGUI info		ResetDefaultChannel(UCI)	Note
+pDDL		2390 MHz [0] - 2488 MHz [98]	2402(ch1)-2482(ch81)		87(2477)		UCI matches "iw phy0 info" nad "iwinfo"
+pM2350		2300 MHz [0] - 2398 MHz [98]	2310(ch1)-2390(ch81)		87(2387,UICH78)		UCI matches "iw phy0 info" nad "iwinfo"
+pM2450		2390 MHz [0] - 2488 MHz [98]	2405(ch4)-2479(ch78)		87(2477)		UCI matches "iw phy0 info" nad "iwinfo"
+pM2550		2490 MHz [0] - 2578 MHz [88]	2500(ch1)-2570(ch71)		87(2577)		UCI matches "iw phy0 info" nad "iwinfo". 2577 is not listed in GUI!
+pM2450-JP	2485 MHz [0] - 2491 MHz [6]	2486(ch1)-2491(ch6)		4()
+
+Set Pm2550 default channel to 77(2567MHz)
+
+Nov 21, 2019
+On Untn1604 machine, install FreeRadius and MySQL-server(v5.7). New password for the MySQL root user : Microhard18. This is the user jli pwd of this machine. Root pwd is : qazwsx.
+In mysql : 
+create dtabase wifi_enterprise_db
+create user 'my_wifi_user'@'localhost' identified by 'my_wifi_password'
+Port is standard 1812 for authentication
+
+To test with a client:
+Your username and password (you entered into radcheck earlier)
+Your secret (you entered into nas table earlier)
+
+"clients" in FreeRADIUS term means the authenticators such as NASes, APs or WLAN controllers. We want to verify that only authorized authenticators are used on our network. The authenticators and the authentication sever will use shared secrets to verify each other. The clients are defined in /etc/freeradius/clients.conf.
+
+Nov 12, 2019
+ath10k airtime fairness test. Toke's aql-06 branch patch works patched to kernel v4.14.137. The firmware should use firmware-5.bin_10.2.4.70.70. This firmare reports correct TX time. Compat wireless uses OWrt's latest backports-5.4-rc2-1.
+
+Test with Iperf UDP. STA1 with RX rate=2.Mbps and T/P=1.0Mbps. STA2 with RX rate=52Mbps and T/P=13Mbps. STA2 t/p is not dragged down by the poor STA1. Withouth this patch, the STA2 will have the same poor T/P as STA1. 
+
+Nov 8, 2019
+Which firmware will work for airtime fairness? Tried the backports-5.4-rc2-1 + /home/jli/Downloads/firmware-5.bin_10.2.4.70.70 bundle. Ping 2 STAs with different tx rates, and observe the sys/kernel/debug/ieee80211/phy0/netdev\:wlan0/stations/00\:0f\:92\:fe\:00\:86/airtime values, the TX time look correct. The default QCA988X CT firmware doesn't read a correct TX time value.
+
+Nov 5, 2019
+Debug the oops in pMDDL2x50: 
+WARNING: at /home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/include/net/mac80211.h:4626 ieee80211_mps_frame_release+0xf68/0x1410 [mac80211]() and 
+WARNING: at /home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/net/mac80211/rate.c:251 rate_control_send_comport+0x32c/0x424 [mac80211]()
+
+They have the same root cause : in meshd-nl80211 peer_created() function, the uint8_t supported_rates[] = { 2, 4, 10, 22, 96, 108 } doesn't match the station rate list, so that the station doesn't have any available rate. This causes:
+
+[   31.070000] br-lan: port 1(eth0) entered forwarding state
+[   33.540000] ==MHX2.0(nl80211_new_station)
+[   33.540000] ==MHX2.1(nl80211_new_station)
+[   33.540000] ==MHX2.2(nl80211_new_station)
+[   33.540000] ==MHX2.3(nl80211_new_station)
+[   33.540000] ==MHX2.4(nl80211_new_station)
+[   33.540000] ==MHX2.5(nl80211_new_station)
+[   33.540000] ==MHX2.6(nl80211_new_station)
+[   33.540000] ==MHX2.7(nl80211_new_station)
+[   33.540000] ==MHX2.8(nl80211_new_station)
+[   33.540000] ==MHX2.9(nl80211_new_station) supported_rates=[2,4,10,22], len=6
+[   33.540000] ==MHX(ieee80211_parse_bitrates)3.0srates_len=6
+[   33.540000] ==MHX3.1(ieee80211_parse_bitrates) rate=2
+[   33.540000] ==MHX3.1(ieee80211_parse_bitrates) rate=4
+[   33.540000] ==MHX3.1(ieee80211_parse_bitrates) rate=10
+[   33.540000] ==MHX3.1(ieee80211_parse_bitrates) rate=22
+[   33.540000] ==MHX3.1(ieee80211_parse_bitrates) rate=96
+[   33.540000] ==MHX3.1(ieee80211_parse_bitrates) rate=108
+[   33.540000] ==MHX3.2(ieee80211_parse_bitrates) rate_mask=00000000, count=0
+[   33.540000] =MHX1.0(rate_lowest_index) STA=82b433f8
+[   33.540000] =MHX1.1(rate_lowest_index) STA=[fb:48:f8]. supp_rate[0]=00000000
+[   33.540000] =MHX1.0(rate_lowest_index) STA=82b433f8
+[   33.540000] =MHX1.1(rate_lowest_index) STA=[fb:48:f8]. supp_rate[0]=00000000
+[   33.540000] =MHX1.0(rate_lowest_index) STA=82b433f8
+[   33.540000] =MHX1.1(rate_lowest_index) STA=[fb:48:f8]. supp_rate[0]=00000000
+[   33.540000] =MHX1.0(rate_lowest_index) STA=82b433f8
+[   33.540000] =MHX1.1(rate_lowest_index) STA=[fb:48:f8]. supp_rate[0]=00000000
+[   33.540000] =MHX1.0(rate_lowest_index) STA=82b433f8
+[   33.540000] =MHX1.1(rate_lowest_index) STA=[fb:48:f8]. supp_rate[0]=00000000
+[   33.540000] =MHX1.0(rate_lowest_index) STA=82b433f8
+[   33.540000] =MHX1.1(rate_lowest_index) STA=[fb:48:f8]. supp_rate[0]=00000000
+[   33.540000] ------------[ cut here ]------------
+[   33.540000] WARNING: at /home/jli/project/work/pmddl/pmddl2450/build_dir/target-mips_34kc_uClibc
+-0.9.33.2/linux-ar71xx_generic/compat-wireless-pDDL2458base_v2/include/net/mac80211.h:4633 ieee8021
+1_mps_frame_release+0xfc4/0x146c [mac80211]()
+
+Problem 1: 
+After peer_created(), NL80211_CMD_NEW_STATION is sent to driver and the uint8_t supported_rates[] is passed to driver. This list must match sband->bitrates[] in ieee80211_parse_bitrates(). Otherwise rates(U32 rate mask) will be all 0 and no rate is found. Tried uint8_t supported_rates[] = { 12, 18, 24, 36, 48, 72 }; works. 
+
+Problem 2: 
+peer_created() sends NL80211_CMD_NEW_STATION(19) to driver and insert a station. After that, when estab_peer_link()--->set_supported_rates()--->NL80211_CMD_SET_STATION (18) is sent to driver, the NL complains "nlerror command 18". This supposed to set the supported rates by the IE from peer station but failed. This means can not SET_STATION after NEW_STATION. And also means the IE rates can not be used. Only way is to set a correct initial rate list uint8_t supported_rates[] = { 12, 18, 24, 36, 48, 72 }; in peer_created(). After setting a correct rate list:
+
+<6>[   38.880000] br-lan: port 2(wlan0) entered forwarding state
+<0>[   64.020000] ==MHX2.0(nl80211_new_station)
+<0>[   64.020000] ==MHX2.1(nl80211_new_station)
+<0>[   64.020000] ==MHX2.2(nl80211_new_station)
+<0>[   64.020000] ==MHX2.3(nl80211_new_station)
+<0>[   64.020000] ==MHX2.4(nl80211_new_station)
+<0>[   64.020000] ==MHX2.5(nl80211_new_station)
+<0>[   64.020000] ==MHX2.6(nl80211_new_station)
+<0>[   64.020000] ==MHX2.7(nl80211_new_station)
+<0>[   64.020000] ==MHX2.8(nl80211_new_station)
+<0>[   64.020000] ==MHX2.9(nl80211_new_station) supported_rates=[12,18,24,36], len=6
+
+<0>[   64.020000] ==MHX(ieee80211_parse_bitrates)3.0srates_len=6
+<0>[   64.020000] ==MHX3.1(ieee80211_parse_bitrates) rate=12
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=0, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=12
+
+<0>[   64.020000] ==MHX3.1(ieee80211_parse_bitrates) rate=18
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=0, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=12
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=1, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=18
+
+<0>[   64.020000] ==MHX3.1(ieee80211_parse_bitrates) rate=24
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=0, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=12
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=1, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=18
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=2, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=24
+
+<0>[   64.020000] ==MHX3.1(ieee80211_parse_bitrates) rate=36
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=0, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=12
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=1, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=18
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=2, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=24
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=3, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=36
+
+<0>[   64.020000] ==MHX3.1(ieee80211_parse_bitrates) rate=48
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=0, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=12
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=1, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=18
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=2, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=24
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=3, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=36
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=4, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=48
+
+<0>[   64.020000] ==MHX3.1(ieee80211_parse_bitrates) rate=72
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=0, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=12
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=1, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=18
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=2, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=24
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=3, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=36
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=4, rate_flags=0, br->flags=68
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=48
+<0>[   64.020000] ==MHX3.2(ieee80211_parse_bitrates) j=5, rate_flags=0, br->flags=60
+<0>[   64.020000] ==MHX3.3(ieee80211_parse_bitrates) brate=72
+<0>[   64.020000] ==MHX3.4(ieee80211_parse_bitrates) rate_mask=0000003f, count=6
+
+<0>[   64.020000] =MHX1.0(rate_lowest_index) STA=82a4e3f8
+<0>[   64.020000] =MHX1.1(rate_lowest_index) STA=[fb:48:f8]. supp_rate[0]=0000003f
+<7>[   68.550000] wlan0: received PREQ from 00:0f:92:fb:48:f8
+<7>[   68.550000] wlan0: PREQ is for us
+
+===================================================================================
+pMDDL2x50 mesh mode always set to aes128 mode, wireless.@wifi-iface[0].encryption=psk2. Even when in aes-246 mode, wireless.@wifi-iface[0].encryption=aes256, the meshd-nl80211 still uses cipher suite aes128. A test shows, when set to CCMP-256 cipher suite, it works in AES256 mode:
+
+/////////////// JLI #define CIPHER_CCMP 0x000FAC04  AES128 suite
+#define CIPHER_CCMP 0x000FAC0A				// force to aes256 cipher suite. it works.
+#define CIPHER_AES_CMAC 0x000FAC06
+
 Nov 1, 2019
 pMDDL2450 on a generic dev board has 3 different opps with MESH mode:
 1. This comes from mhx-bsp.ko. Because it doesn't have GPIO expander.
