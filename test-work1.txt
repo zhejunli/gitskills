@@ -1,3 +1,1808 @@
+Jan 5, 2022
+iw set bitrates : each virtual interface need its own "iw set bitrates" command, especially note in Repeater mode : 
+
+// for interface wlan0.rep
+root@UserDevice:~# iw wlan0.rep set bitrates legacy-2.4 6 9 12 18 24 36 ht-mcs-2
+.4 0 1 2
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/netdev\:wlan0.rep/rc_rate
+idx_mcs_mask_2ghz 
+07 00 00 00 00 00 00 00 00 00 
+root@UserDevice:~# iw wlan0.rep set bitrates legacy-2.4 6 9 12 18 24 36 ht-mcs-2
+.4 0 1 2 3 4
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/netdev\:wlan0.rep/rc_rate
+idx_mcs_mask_2ghz 
+1f 00 00 00 00 00 00 00 00 00 
+
+// for interface wlan0
+root@UserDevice:~# iw wlan0 set bitrates legacy-2.4 6 9 12 18 24 36 ht-mcs-2.4 0
+ 1 2
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/netdev\:wlan0/rc_rateidx_
+mcs_mask_2ghz 
+07 00 00 00 00 00 00 00 00 00 
+root@UserDevice:~# iw wlan0 set bitrates legacy-2.4 6 9 12 18 24 36 ht-mcs-2.4 0
+ 1 2 3 4 5
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/netdev\:wlan0/rc_rateidx_
+mcs_mask_2ghz 
+3f 00 00 00 00 00 00 00 00 00 
+
+This is set in mac80211_setup_vif() function for static interfaces. For dynamic interfaces, like in AP mode, wlan0.stax when WDS=1, only wlan0 interface needs to be set and all the .stax interfaces will follow it automatically.
+
+
+
+Dec 20, 2021
+Change pMDDL FCC channels to match previous channels:
+
+		cfg_ch_list_20="$(seq 22 82)"	# 20MHz, [2412..2472] standard WiFi range.
+		cfg_ch_list_10="$(seq 17 87)"	# 8MHz, [2407..2477]
+		cfg_ch_list_5="$(seq 12 87)"	# 4MHz, [2402..2477]
+
+
+
+Dec 16, 2021
+Add HT40 support on pX2 ART5 because FCC/CE certification need.
+wlan/ah_regdomain_common.h
+        { 2200, 2900, 30,  0, 5, 1, NO_DFS, NO_PSCAN, 0},       /* G1_2200_2900 */
+        { 2200, 2900, 30,  0, 10, 1, NO_DFS, NO_PSCAN, 0},      /* G2_2200_2900 */
+        { 2200, 2900, 30,  0, 8, 1, NO_DFS, NO_PSCAN, 0},       /* G3_2200_2900 */
+-       { 2200, 2900, 30,  0, 16, 1, NO_DFS, NO_PSCAN, 0},      /* G4_2200_2900 */
++       { 2200, 2900, 30,  0, 40, 1, NO_DFS, NO_PSCAN, 0},      /* G4_2200_2900 */
+Replace the BW=1 mode with 40MHz channels. And to save more space, HT40+ and HT40- share the same definition. Adding extra HT40 definition cause crash. Mostly likely the ChannelFind() function uses recurrsion that causes stack overflow with too many channels. Currently the max looks like MCHANNEL=3505 = (2900 - 2200 + 1) * 5 (channel_types, BW=5/10/4/2/1). 20MHz is automatic no need extra definition(bw=0). No max-out!!!
+The channel flags is like:
+===MHX2.9 (ath_hal_init_channels) chan[3440]: 2888 flags: 0x800c0		// CHANNEL_ONE_EIGHTH | CHANNEL_OFDM | CHANNEL_2GHZ
+===MHX2.9 (ath_hal_init_channels) chan[3441]: 2888 flags: 0x1000c0		// CHANNEL_ONE_SIXTEENTH | CHANNEL_OFDM | CHANNEL_2GHZ
+===MHX2.9 (ath_hal_init_channels) chan[3442]: 2888 flags: 0x40c0		// CHANNEL_HALF | CHANNEL_OFDM | CHANNEL_2GHZ
+===MHX2.9 (ath_hal_init_channels) chan[3443]: 2888 flags: 0x80c0		// CHANNEL_QUARTER | CHANNEL_OFDM | CHANNEL_2GHZ
+===MHX2.9 (ath_hal_init_channels) chan[3444]: 2888 flags: 0x10080		// CHANNEL_HT20 | CHANNEL_2GHZ
+
+In mcart:
+4 - HT(4)0 Rate Mode [Lower] sets the ht40= parapeter in the command string to ht40=-1
+4 - HT(4)0 Rate Mode [Upper] sets the ht40= parapeter in the command string to ht40= 1
+4 - HT(4)0 Rate Mode [Auto] sets the ht40= parapeter in the command string to ht40= 2
+
+Dec 14, 2021
+Check HT40 mode in ART2 with ar9331 pX2.
+
+1. 
+|  m - Rate (M)ode [HT40 Mode]                                                           |
+|  r - (R)ate [HT40mc7]                                                                  |
+|  4 - HT(4)0 Rate Mode [Auto] 
+|  b - Bandwidth [Automatic]
+
+TX LED on.
+tx f=2412;txch=7;rxch=7;bc=1;retry=0;att=0;iss=0;stat=3;dump=0;pro=0;bssid=50:55:55:55:55:05;mactx=20:22:22:22:22:02;macrx=10:11:11:11:11:01;deaf=0;reset=1;cal=0;ir=0;gi=0;pc=-1;pl=1500;ifs=-1;dur=-1;agg=0;ht40=2;bw=0;r=f7;pcdac=0;pdgain=3;
+
+
+2.
+|  m - Rate (M)ode [HT40 Mode]                                                           |
+|  r - (R)ate [HT40mc16]                                                                 |
+|  4 - HT(4)0 Rate Mode [Lower]                                                          |
+|  b - Bandwidth [Automatic]  
+TX LED on.
+tx f=2412;txch=7;rxch=7;bc=1;retry=0;att=0;iss=0;stat=3;dump=0;pro=0;bssid=50:55:55:55:55:05;mactx=20:22:22:22:22:02;macrx=10:11:11:11:11:01;deaf=0;reset=1;cal=0;ir=0;gi=0;pc=-1;pl=1500;ifs=-1;dur=-1;agg=0;ht40=-1;bw=0;r=f16;pcdac=0;pdgain=3;
+
+3.
+|  m - Rate (M)ode [HT40 Mode]                                                           |
+|  r - (R)ate [HT40mc16]                                                                 |
+|  4 - HT(4)0 Rate Mode [Upper]                                                          |
+|  b - Bandwidth [Automatic]   
+TX LED on.
+tx f=2412;txch=7;rxch=7;bc=1;retry=0;att=0;iss=0;stat=3;dump=0;pro=0;bssid=50:55:55:55:55:05;mactx=20:22:22:22:22:02;macrx=10:11:11:11:11:01;deaf=0;reset=1;cal=0;ir=0;gi=0;pc=-1;pl=1500;ifs=-1;dur=-1;agg=0;ht40=1;bw=0;r=f16;pcdac=0;pdgain=3;
+
+4.
+|  m - Rate (M)ode [HT40 Mode]                                                           |
+|  r - (R)ate [HT40mc16]                                                                 |
+|  4 - HT(4)0 Rate Mode [Upper]                                                          |
+|  b - Bandwidth [4MHz] 
+TX LED on.
+tx f=2412;txch=7;rxch=7;bc=1;retry=0;att=0;iss=0;stat=3;dump=0;pro=0;bssid=50:55:55:55:55:05;mactx=20:22:22:22:22:02;macrx=10:11:11:11:11:01;deaf=0;reset=1;cal=0;ir=0;gi=0;pc=-1;pl=1500;ifs=-1;dur=-1;agg=0;ht40=1;bw=5;r=f16;pcdac=0;pdgain=3;
+
+5.
+|  m - Rate (M)ode [HT40 Mode]                                                           |
+|  r - (R)ate [HT40mc16]                                                                 |
+|  4 - HT(4)0 Rate Mode [Upper]                                                          |
+|  b - Bandwidth [OFDM]    
+TX LED on.
+tx f=2412;txch=7;rxch=7;bc=1;retry=0;att=0;iss=0;stat=3;dump=0;pro=0;bssid=50:55:55:55:55:05;mactx=20:22:22:22:22:02;macrx=10:11:11:11:11:01;deaf=0;reset=1;cal=0;ir=0;gi=0;pc=-1;pl=1500;ifs=-1;dur=-1;agg=0;ht40=1;bw=19;r=f16;pcdac=0;pdgain=3;
+
+6.
+|  m - Rate (M)ode [HT40 Mode]                                                           |
+|  r - (R)ate [HT40mc23]                                                                 |
+|  4 - HT(4)0 Rate Mode [Auto]                                                           |
+|  b - Bandwidth [Automatic]  
+
+TX LED on.
+
+tx f=2412;txch=7;rxch=7;bc=1;retry=0;att=0;iss=0;stat=3;dump=0;pro=0;bssid=50:55:55:55:55:05;mactx=20:22:22:22:22:02;macrx=10:11:11:11:11:01;deaf=0;reset=1;cal=0;ir=0;gi=0;pc=-1;pl=1500;ifs=-1;dur=-1;agg=0;ht40=2;bw=0;r=f23;pcdac=0;pdgain=3;
+
+I didn't measure transmit waveform but looks all correct by the TX LED of HT40 mode on ar9331.
+
+
+Dec 10, 2021
+BetaD pX2 generic WiFi:
+11b mode:
+root@BetaD-ART:~# cat /etc/config/wireless | grep mode
+        option hw11ac_mode '0'
+        option bwmode '20mHz'
+        option hwmode '11b'
+        option htmode 'NONE'
+        option mode 'ap'
+root@BetaD-ART:~# cat /etc/config/wireless | grep bw
+        option bwmode '20mHz'
+
+11BG mode:
+        option hw11ac_mode '0'
+        option bwmode '20mHz'
+        option hwmode '11g'
+        option htmode 'NONE'
+        option mode 'ap'
+root@BetaD-ART:~# cat /etc/config/wireless | grep bw
+        option bwmode '20mHz'
+
+11NG mode, HT20:
+root@BetaD-ART:~# cat /etc/config/wireless | grep mode
+        option hw11ac_mode '0'
+        option bwmode '20mHz'
+        option hwmode '11ng'
+        option htmode 'HT20'
+        option mode 'ap'
+root@BetaD-ART:~# cat /etc/config/wireless | grep bw
+        option bwmode '20mHz'
+
+
+11NG mode, HT40+:
+root@BetaD-ART:~# cat /etc/config/wireless | grep mode
+        option hw11ac_mode '0'
+        option bwmode '20mHz'
+        option hwmode '11ng'
+        option htmode 'HT40+'
+        option mode 'ap'
+root@BetaD-ART:~# cat /etc/config/wireless | grep bw
+        option bwmode '20mHz'
+
+11NG mode, Force HT40-:
+root@BetaD-ART:~# cat /etc/config/wireless | grep mode
+        option hw11ac_mode '0'
+        option bwmode '20mHz'
+        option hwmode '11ng'
+        option htmode 'HT40-'
+        option mode 'ap'
+root@BetaD-ART:~# cat /etc/config/wireless | grep bw
+        option bwmode '20mHz'
+
+NOTE: In "Force HT40" mode, noscan = 1.
+
+Dec 9, 2021
+/**
+ * struct wpa_bss - BSS table
+ *
+ * This structure is used to store information about neighboring BSSes in
+ * generic format. It is mainly updated based on scan results from the driver.
+ */
+struct wpa_bss {
+	/** List entry for struct wpa_supplicant::bss */
+	struct dl_list list;
+	/** List entry for struct wpa_supplicant::bss_id */
+	struct dl_list list_id;
+	/** Unique identifier for this BSS entry */
+	unsigned int id;
+	/** Number of counts without seeing this BSS */
+	unsigned int scan_miss_count;
+	/** Index of the last scan update */
+	unsigned int last_update_idx;
+	/** Information flags about the BSS/IBSS (WPA_BSS_*) */
+	unsigned int flags;
+	/** BSSID */
+	u8 bssid[ETH_ALEN];
+	/** HESSID */
+	u8 hessid[ETH_ALEN];
+	/** SSID */
+	u8 ssid[SSID_MAX_LEN];
+	/** Length of SSID */
+	size_t ssid_len;
+	/** HT capabilities */
+	u16 ht_capab;
+	/* Five octets of HT Operation Information */
+	u8 ht_param;
+	/** Frequency of the channel in MHz (e.g., 2412 = channel 1) */
+	int freq;
+	/** Beacon interval in TUs (host byte order) */
+	u16 beacon_int;
+	/** Capability information field in host byte order */
+	u16 caps;
+	/** Signal quality */
+	int qual;
+	/** Noise level */
+	int noise;
+	/** Signal level */
+	int level;
+	/** Timestamp of last Beacon/Probe Response frame */
+	u64 tsf;
+	/** Time of the last update (i.e., Beacon or Probe Response RX) */
+	struct os_reltime last_update;
+	/** Estimated throughput in kbps */
+	unsigned int est_throughput;
+	/** Signal-to-noise ratio in dB */
+	int snr;
+	/** ANQP data */
+	struct wpa_bss_anqp *anqp;
+	/** Length of the following IE field in octets (from Probe Response) */
+	size_t ie_len;
+	/** Length of the following Beacon IE field in octets */
+	size_t beacon_ie_len;
+	/* followed by ie_len octets of IEs */
+	/* followed by beacon_ie_len octets of IEs */
+};
+
+/**
+ * struct wpa_ssid - Network configuration data
+ *
+ * This structure includes all the configuration variables for a network. This
+ * data is included in the per-interface configuration data as an element of
+ * the network list, struct wpa_config::ssid. Each network block in the
+ * configuration is mapped to a struct wpa_ssid instance.
+ */
+struct wpa_ssid {
+	/**
+	 * next - Next network in global list
+	 *
+	 * This pointer can be used to iterate over all networks. The head of
+	 * this list is stored in the ssid field of struct wpa_config.
+	 */
+	struct wpa_ssid *next;
+
+	/**
+	 * pnext - Next network in per-priority list
+	 *
+	 * This pointer can be used to iterate over all networks in the same
+	 * priority class. The heads of these list are stored in the pssid
+	 * fields of struct wpa_config.
+	 */
+	struct wpa_ssid *pnext;
+
+	/**
+	 * id - Unique id for the network
+	 *
+	 * This identifier is used as a unique identifier for each network
+	 * block when using the control interface. Each network is allocated an
+	 * id when it is being created, either when reading the configuration
+	 * file or when a new network is added through the control interface.
+	 */
+	int id;
+
+	/**
+	 * priority - Priority group
+	 *
+	 * By default, all networks will get same priority group (0). If some
+	 * of the networks are more desirable, this field can be used to change
+	 * the order in which wpa_supplicant goes through the networks when
+	 * selecting a BSS. The priority groups will be iterated in decreasing
+	 * priority (i.e., the larger the priority value, the sooner the
+	 * network is matched against the scan results). Within each priority
+	 * group, networks will be selected based on security policy, signal
+	 * strength, etc.
+	 *
+	 * Please note that AP scanning with scan_ssid=1 and ap_scan=2 mode are
+	 * not using this priority to select the order for scanning. Instead,
+	 * they try the networks in the order that used in the configuration
+	 * file.
+	 */
+	int priority;
+
+	/**
+	 * ssid - Service set identifier (network name)
+	 *
+	 * This is the SSID for the network. For wireless interfaces, this is
+	 * used to select which network will be used. If set to %NULL (or
+	 * ssid_len=0), any SSID can be used. For wired interfaces, this must
+	 * be set to %NULL. Note: SSID may contain any characters, even nul
+	 * (ASCII 0) and as such, this should not be assumed to be a nul
+	 * terminated string. ssid_len defines how many characters are valid
+	 * and the ssid field is not guaranteed to be nul terminated.
+	 */
+	u8 *ssid;
+
+	/**
+	 * ssid_len - Length of the SSID
+	 */
+	size_t ssid_len;
+
+	/**
+	 * bssid - BSSID
+	 *
+	 * If set, this network block is used only when associating with the AP
+	 * using the configured BSSID
+	 *
+	 * If this is a persistent P2P group (disabled == 2), this is the GO
+	 * Device Address.
+	 */
+	u8 bssid[ETH_ALEN];
+
+	/**
+	 * bssid_blacklist - List of inacceptable BSSIDs
+	 */
+	u8 *bssid_blacklist;
+	size_t num_bssid_blacklist;
+
+	/**
+	 * bssid_blacklist - List of acceptable BSSIDs
+	 */
+	u8 *bssid_whitelist;
+	size_t num_bssid_whitelist;
+
+	/**
+	 * bssid_set - Whether BSSID is configured for this network
+	 */
+	int bssid_set;
+
+	/**
+	 * bssid_hint - BSSID hint
+	 *
+	 * If set, this is configured to the driver as a preferred initial BSSID
+	 * while connecting to this network.
+	 */
+	u8 bssid_hint[ETH_ALEN];
+
+	/**
+	 * bssid_hint_set - Whether BSSID hint is configured for this network
+	 */
+	int bssid_hint_set;
+
+	/**
+	 * go_p2p_dev_addr - GO's P2P Device Address or all zeros if not set
+	 */
+	u8 go_p2p_dev_addr[ETH_ALEN];
+
+	/**
+	 * psk - WPA pre-shared key (256 bits)
+	 */
+	u8 psk[32];
+
+	/**
+	 * psk_set - Whether PSK field is configured
+	 */
+	int psk_set;
+
+	/**
+	 * passphrase - WPA ASCII passphrase
+	 *
+	 * If this is set, psk will be generated using the SSID and passphrase
+	 * configured for the network. ASCII passphrase must be between 8 and
+	 * 63 characters (inclusive).
+	 */
+	char *passphrase;
+
+	/**
+	 * sae_password - SAE password
+	 *
+	 * This parameter can be used to set a password for SAE. By default, the
+	 * passphrase value is used if this separate parameter is not used, but
+	 * passphrase follows the WPA-PSK constraints (8..63 characters) even
+	 * though SAE passwords do not have such constraints.
+	 */
+	char *sae_password;
+
+	/**
+	 * sae_password_id - SAE password identifier
+	 *
+	 * This parameter can be used to identify a specific SAE password. If
+	 * not included, the default SAE password is used instead.
+	 */
+	char *sae_password_id;
+
+	struct sae_pt *pt;
+
+	/**
+	 * ext_psk - PSK/passphrase name in external storage
+	 *
+	 * If this is set, PSK/passphrase will be fetched from external storage
+	 * when requesting association with the network.
+	 */
+	char *ext_psk;
+
+	/**
+	 * mem_only_psk - Whether to keep PSK/passphrase only in memory
+	 *
+	 * 0 = allow psk/passphrase to be stored to the configuration file
+	 * 1 = do not store psk/passphrase to the configuration file
+	 */
+	int mem_only_psk;
+
+	/**
+	 * pairwise_cipher - Bitfield of allowed pairwise ciphers, WPA_CIPHER_*
+	 */
+	int pairwise_cipher;
+
+	/**
+	 * group_cipher - Bitfield of allowed group ciphers, WPA_CIPHER_*
+	 */
+	int group_cipher;
+
+	/**
+	 * group_mgmt_cipher - Bitfield of allowed group management ciphers
+	 *
+	 * This is a bitfield of WPA_CIPHER_AES_128_CMAC and WPA_CIPHER_BIP_*
+	 * values. If 0, no constraint is used for the cipher, i.e., whatever
+	 * the AP uses is accepted.
+	 */
+	int group_mgmt_cipher;
+
+	/**
+	 * key_mgmt - Bitfield of allowed key management protocols
+	 *
+	 * WPA_KEY_MGMT_*
+	 */
+	int key_mgmt;
+
+	/**
+	 * bg_scan_period - Background scan period in seconds, 0 to disable, or
+	 * -1 to indicate no change to default driver configuration
+	 */
+	int bg_scan_period;
+
+	/**
+	 * proto - Bitfield of allowed protocols, WPA_PROTO_*
+	 */
+	int proto;
+
+	/**
+	 * auth_alg -  Bitfield of allowed authentication algorithms
+	 *
+	 * WPA_AUTH_ALG_*
+	 */
+	int auth_alg;
+
+	/**
+	 * scan_ssid - Scan this SSID with Probe Requests
+	 *
+	 * scan_ssid can be used to scan for APs using hidden SSIDs.
+	 * Note: Many drivers do not support this. ap_mode=2 can be used with
+	 * such drivers to use hidden SSIDs. Note2: Most nl80211-based drivers
+	 * do support scan_ssid=1 and that should be used with them instead of
+	 * ap_scan=2.
+	 */
+	int scan_ssid;
+
+#ifdef IEEE8021X_EAPOL
+#define EAPOL_FLAG_REQUIRE_KEY_UNICAST BIT(0)
+#define EAPOL_FLAG_REQUIRE_KEY_BROADCAST BIT(1)
+	/**
+	 * eapol_flags - Bit field of IEEE 802.1X/EAPOL options (EAPOL_FLAG_*)
+	 */
+	int eapol_flags;
+
+	/**
+	 * eap - EAP peer configuration for this network
+	 */
+	struct eap_peer_config eap;
+#endif /* IEEE8021X_EAPOL */
+
+#ifdef CONFIG_WEP
+#define NUM_WEP_KEYS 4
+#define MAX_WEP_KEY_LEN 16
+	/**
+	 * wep_key - WEP keys
+	 */
+	u8 wep_key[NUM_WEP_KEYS][MAX_WEP_KEY_LEN];
+
+	/**
+	 * wep_key_len - WEP key lengths
+	 */
+	size_t wep_key_len[NUM_WEP_KEYS];
+
+	/**
+	 * wep_tx_keyidx - Default key index for TX frames using WEP
+	 */
+	int wep_tx_keyidx;
+#endif /* CONFIG_WEP */
+
+	/**
+	 * proactive_key_caching - Enable proactive key caching
+	 *
+	 * This field can be used to enable proactive key caching which is also
+	 * known as opportunistic PMKSA caching for WPA2. This is disabled (0)
+	 * by default unless default value is changed with the global okc=1
+	 * parameter. Enable by setting this to 1.
+	 *
+	 * Proactive key caching is used to make supplicant assume that the APs
+	 * are using the same PMK and generate PMKSA cache entries without
+	 * doing RSN pre-authentication. This requires support from the AP side
+	 * and is normally used with wireless switches that co-locate the
+	 * authenticator.
+	 *
+	 * Internally, special value -1 is used to indicate that the parameter
+	 * was not specified in the configuration (i.e., default behavior is
+	 * followed).
+	 */
+	int proactive_key_caching;
+
+	/**
+	 * mixed_cell - Whether mixed cells are allowed
+	 *
+	 * This option can be used to configure whether so called mixed cells,
+	 * i.e., networks that use both plaintext and encryption in the same
+	 * SSID, are allowed. This is disabled (0) by default. Enable by
+	 * setting this to 1.
+	 */
+	int mixed_cell;
+
+#ifdef IEEE8021X_EAPOL
+
+	/**
+	 * leap - Number of EAP methods using LEAP
+	 *
+	 * This field should be set to 1 if LEAP is enabled. This is used to
+	 * select IEEE 802.11 authentication algorithm.
+	 */
+	int leap;
+
+	/**
+	 * non_leap - Number of EAP methods not using LEAP
+	 *
+	 * This field should be set to >0 if any EAP method other than LEAP is
+	 * enabled. This is used to select IEEE 802.11 authentication
+	 * algorithm.
+	 */
+	int non_leap;
+
+	/**
+	 * eap_workaround - EAP workarounds enabled
+	 *
+	 * wpa_supplicant supports number of "EAP workarounds" to work around
+	 * interoperability issues with incorrectly behaving authentication
+	 * servers. This is recommended to be enabled by default because some
+	 * of the issues are present in large number of authentication servers.
+	 *
+	 * Strict EAP conformance mode can be configured by disabling
+	 * workarounds with eap_workaround = 0.
+	 */
+	unsigned int eap_workaround;
+
+#endif /* IEEE8021X_EAPOL */
+
+	/**
+	 * mode - IEEE 802.11 operation mode (Infrastucture/IBSS)
+	 *
+	 * 0 = infrastructure (Managed) mode, i.e., associate with an AP.
+	 *
+	 * 1 = IBSS (ad-hoc, peer-to-peer)
+	 *
+	 * 2 = AP (access point)
+	 *
+	 * 3 = P2P Group Owner (can be set in the configuration file)
+	 *
+	 * 4 = P2P Group Formation (used internally; not in configuration
+	 * files)
+	 *
+	 * 5 = Mesh
+	 *
+	 * Note: IBSS can only be used with key_mgmt NONE (plaintext and static
+	 * WEP) and WPA-PSK (with proto=RSN). In addition, key_mgmt=WPA-NONE
+	 * (fixed group key TKIP/CCMP) is available for backwards compatibility,
+	 * but its use is deprecated. WPA-None requires following network block
+	 * options: proto=WPA, key_mgmt=WPA-NONE, pairwise=NONE, group=TKIP (or
+	 * CCMP, but not both), and psk must also be set (either directly or
+	 * using ASCII passphrase).
+	 */
+	enum wpas_mode mode;
+
+	/**
+	 * pbss - Whether to use PBSS. Relevant to DMG networks only.
+	 * 0 = do not use PBSS
+	 * 1 = use PBSS
+	 * 2 = don't care (not allowed in AP mode)
+	 * Used together with mode configuration. When mode is AP, it
+	 * means to start a PCP instead of a regular AP. When mode is INFRA it
+	 * means connect to a PCP instead of AP. In this mode you can also
+	 * specify 2 (don't care) meaning connect to either AP or PCP.
+	 * P2P_GO and P2P_GROUP_FORMATION modes must use PBSS in DMG network.
+	 */
+	int pbss;
+
+	/**
+	 * disabled - Whether this network is currently disabled
+	 *
+	 * 0 = this network can be used (default).
+	 * 1 = this network block is disabled (can be enabled through
+	 * ctrl_iface, e.g., with wpa_cli or wpa_gui).
+	 * 2 = this network block includes parameters for a persistent P2P
+	 * group (can be used with P2P ctrl_iface commands)
+	 */
+	int disabled;
+
+	/**
+	 * disabled_for_connect - Whether this network was temporarily disabled
+	 *
+	 * This flag is used to reenable all the temporarily disabled networks
+	 * after either the success or failure of a WPS connection.
+	 */
+	int disabled_for_connect;
+
+	/**
+	 * id_str - Network identifier string for external scripts
+	 *
+	 * This value is passed to external ctrl_iface monitors in
+	 * WPA_EVENT_CONNECTED event and wpa_cli sets this as WPA_ID_STR
+	 * environment variable for action scripts.
+	 */
+	char *id_str;
+
+	/**
+	 * ieee80211w - Whether management frame protection is enabled
+	 *
+	 * This value is used to configure policy for management frame
+	 * protection (IEEE 802.11w). 0 = disabled, 1 = optional, 2 = required.
+	 * This is disabled by default unless the default value has been changed
+	 * with the global pmf=1/2 parameter.
+	 *
+	 * Internally, special value 3 is used to indicate that the parameter
+	 * was not specified in the configuration (i.e., default behavior is
+	 * followed).
+	 */
+	enum mfp_options ieee80211w;
+
+#ifdef CONFIG_OCV
+	/**
+	 * ocv - Enable/disable operating channel validation
+	 *
+	 * If this parameter is set to 1, stations will exchange OCI element
+	 * to cryptographically verify the operating channel. Setting this
+	 * parameter to 0 disables this option. Default value: 0.
+	 */
+	int ocv;
+#endif /* CONFIG_OCV */
+
+	/**
+	 * frequency - Channel frequency in megahertz (MHz) for IBSS
+	 *
+	 * This value is used to configure the initial channel for IBSS (adhoc)
+	 * networks, e.g., 2412 = IEEE 802.11b/g channel 1. It is ignored in
+	 * the infrastructure mode. In addition, this value is only used by the
+	 * station that creates the IBSS. If an IBSS network with the
+	 * configured SSID is already present, the frequency of the network
+	 * will be used instead of this configured value.
+	 */
+	int frequency;
+
+	/**
+	 * enable_edmg - Enable EDMG feature in STA/AP mode
+	 *
+	 * This flag is used for enabling the EDMG capability in STA/AP mode.
+	 */
+	int enable_edmg;
+
+	/**
+	 * edmg_channel - EDMG channel number
+	 *
+	 * This value is used to configure the EDMG channel bonding feature.
+	 * In AP mode it defines the EDMG channel to start the AP on.
+	 * in STA mode it defines the EDMG channel to use for connection
+	 * (if supported by AP).
+	 */
+	u8 edmg_channel;
+
+	/**
+	 * fixed_freq - Use fixed frequency for IBSS
+	 */
+	int fixed_freq;
+
+#ifdef CONFIG_ACS
+	/**
+	 * ACS - Automatic Channel Selection for AP mode
+	 *
+	 * If present, it will be handled together with frequency.
+	 * frequency will be used to determine hardware mode only, when it is
+	 * used for both hardware mode and channel when used alone. This will
+	 * force the channel to be set to 0, thus enabling ACS.
+	 */
+	int acs;
+#endif /* CONFIG_ACS */
+
+	/**
+	 * mesh_basic_rates - BSS Basic rate set for mesh network
+	 *
+	 */
+	int *mesh_basic_rates;
+
+	/**
+	 * Mesh network plink parameters
+	 */
+	int dot11MeshMaxRetries;
+	int dot11MeshRetryTimeout; /* msec */
+	int dot11MeshConfirmTimeout; /* msec */
+	int dot11MeshHoldingTimeout; /* msec */
+
+	/**
+	 * Mesh network layer-2 forwarding
+	 */
+	int mesh_fwding;
+
+	int ht;
+	int ht40;
+
+	int vht;
+
+	int he;
+
+	int max_oper_chwidth;
+
+	unsigned int vht_center_freq1;
+	unsigned int vht_center_freq2;
+
+	/**
+	 * wpa_ptk_rekey - Maximum lifetime for PTK in seconds
+	 *
+	 * This value can be used to enforce rekeying of PTK to mitigate some
+	 * attacks against TKIP deficiencies.
+	 */
+	int wpa_ptk_rekey;
+
+	/** wpa_deny_ptk0_rekey - Control PTK0 rekeying
+	 *
+	 * Rekeying a pairwise key using only keyid 0 (PTK0 rekey) has many
+	 * broken implementations and should be avoided when using or
+	 * interacting with one.
+	 *
+	 * 0 = always rekey when configured/instructed
+	 * 1 = only rekey when the local driver is explicitly indicating it can
+	 *	perform this operation without issues
+	 * 2 = never allow PTK0 rekeys
+	 */
+	enum ptk0_rekey_handling wpa_deny_ptk0_rekey;
+
+	/**
+	 * group_rekey - Group rekeying time in seconds
+	 *
+	 * This value, if non-zero, is used as the dot11RSNAConfigGroupRekeyTime
+	 * parameter when operating in Authenticator role in IBSS.
+	 */
+	int group_rekey;
+
+	/**
+	 * scan_freq - Array of frequencies to scan or %NULL for all
+	 *
+	 * This is an optional zero-terminated array of frequencies in
+	 * megahertz (MHz) to include in scan requests when searching for this
+	 * network. This can be used to speed up scanning when the network is
+	 * known to not use all possible channels.
+	 */
+	int *scan_freq;
+
+	/**
+	 * bgscan - Background scan and roaming parameters or %NULL if none
+	 *
+	 * This is an optional set of parameters for background scanning and
+	 * roaming within a network (ESS) in following format:
+	 * <bgscan module name>:<module parameters>
+	 */
+	char *bgscan;
+
+	/**
+	 * ignore_broadcast_ssid - Hide SSID in AP mode
+	 *
+	 * Send empty SSID in beacons and ignore probe request frames that do
+	 * not specify full SSID, i.e., require stations to know SSID.
+	 * default: disabled (0)
+	 * 1 = send empty (length=0) SSID in beacon and ignore probe request
+	 * for broadcast SSID
+	 * 2 = clear SSID (ASCII 0), but keep the original length (this may be
+	 * required with some clients that do not support empty SSID) and
+	 * ignore probe requests for broadcast SSID
+	 */
+	int ignore_broadcast_ssid;
+
+	/**
+	 * freq_list - Array of allowed frequencies or %NULL for all
+	 *
+	 * This is an optional zero-terminated array of frequencies in
+	 * megahertz (MHz) to allow for selecting the BSS. If set, scan results
+	 * that do not match any of the specified frequencies are not
+	 * considered when selecting a BSS.
+	 */
+	int *freq_list;
+
+	/**
+	 * p2p_client_list - List of P2P Clients in a persistent group (GO)
+	 *
+	 * This is a list of P2P Clients (P2P Device Address) that have joined
+	 * the persistent group. This is maintained on the GO for persistent
+	 * group entries (disabled == 2).
+	 */
+	u8 *p2p_client_list;
+
+	/**
+	 * num_p2p_clients - Number of entries in p2p_client_list
+	 */
+	size_t num_p2p_clients;
+
+#ifndef P2P_MAX_STORED_CLIENTS
+#define P2P_MAX_STORED_CLIENTS 100
+#endif /* P2P_MAX_STORED_CLIENTS */
+
+	/**
+	 * psk_list - Per-client PSKs (struct psk_list_entry)
+	 */
+	struct dl_list psk_list;
+
+	/**
+	 * p2p_group - Network generated as a P2P group (used internally)
+	 */
+	int p2p_group;
+
+	/**
+	 * p2p_persistent_group - Whether this is a persistent group
+	 */
+	int p2p_persistent_group;
+
+	/**
+	 * temporary - Whether this network is temporary and not to be saved
+	 */
+	int temporary;
+
+	/**
+	 * export_keys - Whether keys may be exported
+	 *
+	 * This attribute will be set when keys are determined through
+	 * WPS or similar so that they may be exported.
+	 */
+	int export_keys;
+
+#ifdef CONFIG_HT_OVERRIDES
+	/**
+	 * disable_ht - Disable HT (IEEE 802.11n) for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_ht;
+
+	/**
+	 * disable_ht40 - Disable HT40 for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_ht40;
+
+	/**
+	 * disable_sgi - Disable SGI (Short Guard Interval) for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_sgi;
+
+	/**
+	 * disable_ldpc - Disable LDPC for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_ldpc;
+
+	/**
+	 * ht40_intolerant - Indicate 40 MHz intolerant for this network
+	 */
+	int ht40_intolerant;
+
+	/**
+	 * disable_max_amsdu - Disable MAX A-MSDU
+	 *
+	 * A-MDSU will be 3839 bytes when disabled, or 7935
+	 * when enabled (assuming it is otherwise supported)
+	 * -1 (default) means do not apply any settings to the kernel.
+	 */
+	int disable_max_amsdu;
+
+	/**
+	 * ampdu_factor - Maximum A-MPDU Length Exponent
+	 *
+	 * Value: 0-3, see 7.3.2.56.3 in IEEE Std 802.11n-2009.
+	 */
+	int ampdu_factor;
+
+	/**
+	 * ampdu_density - Minimum A-MPDU Start Spacing
+	 *
+	 * Value: 0-7, see 7.3.2.56.3 in IEEE Std 802.11n-2009.
+	 */
+	int ampdu_density;
+
+	/**
+	 * ht_mcs - Allowed HT-MCS rates, in ASCII hex: ffff0000...
+	 *
+	 * By default (empty string): Use whatever the OS has configured.
+	 */
+	char *ht_mcs;
+
+	/**
+	 * tx_stbc - Indicate STBC support for TX streams
+	 *
+	 * Value: -1..1, by default (-1): use whatever the OS or card has
+	 * configured. See IEEE Std 802.11-2016, 9.4.2.56.2.
+	 */
+	int tx_stbc;
+
+	/**
+	 * rx_stbc - Indicate STBC support for RX streams
+	 *
+	 * Value: -1..3, by default (-1): use whatever the OS or card has
+	 * configured. See IEEE Std 802.11-2016, 9.4.2.56.2.
+	 */
+	int rx_stbc;
+#endif /* CONFIG_HT_OVERRIDES */
+
+#ifdef CONFIG_VHT_OVERRIDES
+	/**
+	 * disable_vht - Disable VHT (IEEE 802.11ac) for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_vht;
+
+	/**
+	 * vht_capa - VHT capabilities to use
+	 */
+	unsigned int vht_capa;
+
+	/**
+	 * vht_capa_mask - mask for VHT capabilities
+	 */
+	unsigned int vht_capa_mask;
+
+	int vht_rx_mcs_nss_1, vht_rx_mcs_nss_2,
+	    vht_rx_mcs_nss_3, vht_rx_mcs_nss_4,
+	    vht_rx_mcs_nss_5, vht_rx_mcs_nss_6,
+	    vht_rx_mcs_nss_7, vht_rx_mcs_nss_8;
+	int vht_tx_mcs_nss_1, vht_tx_mcs_nss_2,
+	    vht_tx_mcs_nss_3, vht_tx_mcs_nss_4,
+	    vht_tx_mcs_nss_5, vht_tx_mcs_nss_6,
+	    vht_tx_mcs_nss_7, vht_tx_mcs_nss_8;
+#endif /* CONFIG_VHT_OVERRIDES */
+
+#ifdef CONFIG_HE_OVERRIDES
+	/**
+	 * disable_he - Disable HE (IEEE 802.11ax) for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_he;
+#endif /* CONFIG_HE_OVERRIDES */
+
+	/**
+	 * ap_max_inactivity - Timeout in seconds to detect STA's inactivity
+	 *
+	 * This timeout value is used in AP mode to clean up inactive stations.
+	 * By default: 300 seconds.
+	 */
+	int ap_max_inactivity;
+
+	/**
+	 * dtim_period - DTIM period in Beacon intervals
+	 * By default: 2
+	 */
+	int dtim_period;
+
+	/**
+	 * beacon_int - Beacon interval (default: 100 TU)
+	 */
+	int beacon_int;
+
+	/**
+	 * auth_failures - Number of consecutive authentication failures
+	 */
+	unsigned int auth_failures;
+
+	/**
+	 * disabled_until - Network block disabled until this time if non-zero
+	 */
+	struct os_reltime disabled_until;
+
+	/**
+	 * parent_cred - Pointer to parent wpa_cred entry
+	 *
+	 * This pointer can be used to delete temporary networks when a wpa_cred
+	 * that was used to create them is removed. This pointer should not be
+	 * dereferences since it may not be updated in all cases.
+	 */
+	void *parent_cred;
+
+	unsigned char rates[WLAN_SUPP_RATES_MAX];
+	double mcast_rate;
+
+#ifdef CONFIG_MACSEC
+	/**
+	 * macsec_policy - Determines the policy for MACsec secure session
+	 *
+	 * 0: MACsec not in use (default)
+	 * 1: MACsec enabled - Should secure, accept key server's advice to
+	 *    determine whether to use a secure session or not.
+	 */
+	int macsec_policy;
+
+	/**
+	 * macsec_integ_only - Determines how MACsec are transmitted
+	 *
+	 * This setting applies only when MACsec is in use, i.e.,
+	 *  - macsec_policy is enabled
+	 *  - the key server has decided to enable MACsec
+	 *
+	 * 0: Encrypt traffic (default)
+	 * 1: Integrity only
+	 */
+	int macsec_integ_only;
+
+	/**
+	 * macsec_replay_protect - Enable MACsec replay protection
+	 *
+	 * This setting applies only when MACsec is in use, i.e.,
+	 *  - macsec_policy is enabled
+	 *  - the key server has decided to enable MACsec
+	 *
+	 * 0: Replay protection disabled (default)
+	 * 1: Replay protection enabled
+	 */
+	int macsec_replay_protect;
+
+	/**
+	 * macsec_replay_window - MACsec replay protection window
+	 *
+	 * A window in which replay is tolerated, to allow receipt of frames
+	 * that have been misordered by the network.
+	 *
+	 * This setting applies only when MACsec replay protection active, i.e.,
+	 *  - macsec_replay_protect is enabled
+	 *  - the key server has decided to enable MACsec
+	 *
+	 * 0: No replay window, strict check (default)
+	 * 1..2^32-1: number of packets that could be misordered
+	 */
+	u32 macsec_replay_window;
+
+	/**
+	 * macsec_port - MACsec port (in SCI)
+	 *
+	 * Port component of the SCI.
+	 *
+	 * Range: 1-65534 (default: 1)
+	 */
+	int macsec_port;
+
+	/**
+	 * mka_priority - Priority of MKA Actor
+	 *
+	 * Range: 0-255 (default: 255)
+	 */
+	int mka_priority;
+
+	/**
+	 * mka_ckn - MKA pre-shared CKN
+	 */
+#define MACSEC_CKN_MAX_LEN 32
+	size_t mka_ckn_len;
+	u8 mka_ckn[MACSEC_CKN_MAX_LEN];
+
+	/**
+	 * mka_cak - MKA pre-shared CAK
+	 */
+#define MACSEC_CAK_MAX_LEN 32
+	size_t mka_cak_len;
+	u8 mka_cak[MACSEC_CAK_MAX_LEN];
+
+#define MKA_PSK_SET_CKN BIT(0)
+#define MKA_PSK_SET_CAK BIT(1)
+#define MKA_PSK_SET (MKA_PSK_SET_CKN | MKA_PSK_SET_CAK)
+	/**
+	 * mka_psk_set - Whether mka_ckn and mka_cak are set
+	 */
+	u8 mka_psk_set;
+#endif /* CONFIG_MACSEC */
+
+#ifdef CONFIG_HS20
+	int update_identifier;
+
+	/**
+	 * roaming_consortium_selection - Roaming Consortium Selection
+	 *
+	 * The matching Roaming Consortium OI that was used to generate this
+	 * network profile.
+	 */
+	u8 *roaming_consortium_selection;
+
+	/**
+	 * roaming_consortium_selection_len - roaming_consortium_selection len
+	 */
+	size_t roaming_consortium_selection_len;
+#endif /* CONFIG_HS20 */
+
+	unsigned int wps_run;
+
+	/**
+	 * mac_addr - MAC address policy
+	 *
+	 * 0 = use permanent MAC address
+	 * 1 = use random MAC address for each ESS connection
+	 * 2 = like 1, but maintain OUI (with local admin bit set)
+	 *
+	 * Internally, special value -1 is used to indicate that the parameter
+	 * was not specified in the configuration (i.e., default behavior is
+	 * followed).
+	 */
+	int mac_addr;
+
+	/**
+	 * no_auto_peer - Do not automatically peer with compatible mesh peers
+	 *
+	 * When unset, the reception of a beacon from a another mesh peer in
+	 * this MBSS will trigger a peering attempt.
+	 */
+	int no_auto_peer;
+
+	int noscan;
+
+	/**
+	 * mesh_rssi_threshold - Set mesh parameter mesh_rssi_threshold (dBm)
+	 *
+	 * -255..-1 = threshold value in dBm
+	 * 0 = not using RSSI threshold
+	 * 1 = do not change driver default
+	 */
+	int mesh_rssi_threshold;
+
+	/**
+	 * wps_disabled - WPS disabled in AP mode
+	 *
+	 * 0 = WPS enabled and configured (default)
+	 * 1 = WPS disabled
+	 */
+	int wps_disabled;
+
+	/**
+	 * fils_dh_group - FILS DH Group
+	 *
+	 * 0 = PFS disabled with FILS shared key authentication
+	 * 1-65535 DH Group to use for FILS PFS
+	 */
+	int fils_dh_group;
+
+	/**
+	 * dpp_connector - DPP Connector (signedConnector as string)
+	 */
+	char *dpp_connector;
+
+	/**
+	 * dpp_netaccesskey - DPP netAccessKey (own private key)
+	 */
+	u8 *dpp_netaccesskey;
+
+	/**
+	 * dpp_netaccesskey_len - DPP netAccessKey length in octets
+	 */
+	size_t dpp_netaccesskey_len;
+
+	/**
+	 * net_access_key_expiry - DPP netAccessKey expiry in UNIX time stamp
+	 *
+	 * 0 indicates no expiration.
+	 */
+	unsigned int dpp_netaccesskey_expiry;
+
+	/**
+	 * dpp_csign - C-sign-key (Configurator public key)
+	 */
+	u8 *dpp_csign;
+
+	/**
+	 * dpp_csign_len - C-sign-key length in octets
+	 */
+	size_t dpp_csign_len;
+
+	/**
+	 * dpp_pfs - DPP PFS
+	 * 0: allow PFS to be used or not used
+	 * 1: require PFS to be used (note: not compatible with DPP R1)
+	 * 2: do not allow PFS to be used
+	 */
+	int dpp_pfs;
+
+	/**
+	 * dpp_pfs_fallback - DPP PFS fallback selection
+	 *
+	 * This is an internally used variable (i.e., not used in external
+	 * configuration) to track state of the DPP PFS fallback mechanism.
+	 */
+	int dpp_pfs_fallback;
+
+	/**
+	 * owe_group - OWE DH Group
+	 *
+	 * 0 = use default (19) first and then try all supported groups one by
+	 *	one if AP rejects the selected group
+	 * 1-65535 DH Group to use for OWE
+	 *
+	 * Groups 19 (NIST P-256), 20 (NIST P-384), and 21 (NIST P-521) are
+	 * currently supported.
+	 */
+	int owe_group;
+
+	/**
+	 * owe_only - OWE-only mode (disable transition mode)
+	 *
+	 * 0 = enable transition mode (allow connection to either OWE or open
+	 *	BSS)
+	 * 1 = disable transition mode (allow connection only with OWE)
+	 */
+	int owe_only;
+
+	/**
+	 * owe_ptk_workaround - OWE PTK derivation workaround
+	 *
+	 * Initial OWE implementation used SHA256 when deriving the PTK for all
+	 * OWE groups. This was supposed to change to SHA384 for group 20 and
+	 * SHA512 for group 21. This parameter can be used to enable older
+	 * behavior mainly for testing purposes. There is no impact to group 19
+	 * behavior, but if enabled, this will make group 20 and 21 cases use
+	 * SHA256-based PTK derivation which will not work with the updated
+	 * OWE implementation on the AP side.
+	 */
+	int owe_ptk_workaround;
+
+	/**
+	 * owe_transition_bss_select_count - OWE transition BSS select count
+	 *
+	 * This is an internally used variable (i.e., not used in external
+	 * configuration) to track the number of selection attempts done for
+	 * OWE BSS in transition mode. This allows fallback to an open BSS if
+	 * the selection attempts for OWE BSS exceed the configured threshold.
+	 */
+	int owe_transition_bss_select_count;
+
+	/**
+	 * multi_ap_backhaul_sta - Multi-AP backhaul STA
+	 * 0 = normal (non-Multi-AP) station
+	 * 1 = Multi-AP backhaul station
+	 */
+	int multi_ap_backhaul_sta;
+
+	/**
+	 * ft_eap_pmksa_caching - Whether FT-EAP PMKSA caching is allowed
+	 * 0 = do not try to use PMKSA caching with FT-EAP
+	 * 1 = try to use PMKSA caching with FT-EAP
+	 *
+	 * This controls whether to try to use PMKSA caching with FT-EAP for the
+	 * FT initial mobility domain association.
+	 */
+	int ft_eap_pmksa_caching;
+
+	/**
+	 * beacon_prot - Whether Beacon protection is enabled
+	 *
+	 * This depends on management frame protection (ieee80211w) being
+	 * enabled.
+	 */
+	int beacon_prot;
+
+	/**
+	 * transition_disable - Transition Disable indication
+	 * The AP can notify authenticated stations to disable transition mode
+	 * in their network profiles when the network has completed transition
+	 * steps, i.e., once sufficiently large number of APs in the ESS have
+	 * been updated to support the more secure alternative. When this
+	 * indication is used, the stations are expected to automatically
+	 * disable transition mode and less secure security options. This
+	 * includes use of WEP, TKIP (including use of TKIP as the group
+	 * cipher), and connections without PMF.
+	 * Bitmap bits:
+	 * bit 0 (0x01): WPA3-Personal (i.e., disable WPA2-Personal = WPA-PSK
+	 *	and only allow SAE to be used)
+	 * bit 1 (0x02): SAE-PK (disable SAE without use of SAE-PK)
+	 * bit 2 (0x04): WPA3-Enterprise (move to requiring PMF)
+	 * bit 3 (0x08): Enhanced Open (disable use of open network; require
+	 *	OWE)
+	 */
+	u8 transition_disable;
+
+	/**
+	 * sae_pk - SAE-PK mode
+	 * 0 = automatic SAE/SAE-PK selection based on password; enable
+	 * transition mode (allow SAE authentication without SAE-PK)
+	 * 1 = SAE-PK only (disable transition mode; allow SAE authentication
+	 * only with SAE-PK)
+	 * 2 = disable SAE-PK (allow SAE authentication only without SAE-PK)
+	 */
+	enum sae_pk_mode sae_pk;
+
+#ifdef CONFIG_STEP_ONEMHZ
+	/**
+	 * roaming_snr_thr - roaming threshold
+	 * Microhard repeater mode - fine tune the connection of STA to REPEATER or AP
+	 */
+	 int roaming_snr_thr;
+#endif
+};
+
+Dec 8, 2021
+pMDDL2450 pair. PC1---->STA~~~>AP--->PC2, Multicast, AES128 ,BW=8M.
+
+WDS=0 :
+    STA : TX rate MCS6/7,RX Rate 3M , TP=15.8Mbps
+
+WDS=1 :
+    STA : TX rate MCS7, RX rate MCS7, TP=29.5Mbps 
+
+Turn on monitor interfaces on AP and STA:
+AP : 00:0F:92:FC:40:A1
+STA: 00:0F:92:FC:40:D8
+1. WDS=0: 
+---- AP (00:0F:92:FC:40:A1) monitor:
+10:56:19.984898 9.0 Mb/s [bit 15] 0us BSSID:00:0f:92:fc:40:a1 DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:fc:40:a1 Beacon (PMDDL_g35)
+ [6.0* 9.0 12.0* 18.0 24.0* 36.0 Mbit] ESS CH: 14, PRIVACY
+10:56:20.087302 9.0 Mb/s [bit 15] 0us BSSID:00:0f:92:fc:40:a1 DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:fc:40:a1 Beacon (PMDDL_g35)
+ [6.0* 9.0 12.0* 18.0 24.0* 36.0 Mbit] ESS CH: 14, PRIVACY
+
+10:56:20.094895 2144564110us tsft 2404 MHz 11n -54dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -54dBm signal antenna
+ 0 -62dBm signal antenna 1 Protected 66us CF +QoS BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data I
+V:a362 Pad 20 KeyID 0
+
+10:56:20.095691 2144564885us tsft 2404 MHz 11n -54dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -54dBm signal antenna
+ 0 -62dBm signal antenna 1 Protected 66us CF +QoS BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data I
+V:a363 Pad 20 KeyID 0
+
+10:56:20.096374 2144564981us tsft 2404 MHz 11n antenna 0 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 Protected 70us CF +QoS BS
+SID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data IV:a364 Pad 20 KeyID 0
+
+10:56:20.096710 2144565896us tsft 2404 MHz 11n -55dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -56dBm signal antenna
+ 0 -62dBm signal antenna 1 Protected 70us CF +QoS BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data I
+V:a365 Pad 20 KeyID 0
+
+10:56:20.097372 2144566581us tsft 2404 MHz 11n -54dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -54dBm signal antenna
+ 0 -62dBm signal antenna 1 Protected 66us CF +QoS BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data I
+V:a366 Pad 20 KeyID 0
+
+10:56:20.103410 2144572072us tsft 2404 MHz 11n antenna 1 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 Protected 70us CF +QoS BS
+SID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data IV:a367 Pad 20 KeyID 0
+
+10:56:20.103759 2144572072us tsft 2404 MHz 11n antenna 1 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 Protected 70us CF +QoS BS
+SID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data IV:a368 Pad 20 KeyID 0
+
+10:56:20.104036 2144573286us tsft 2404 MHz 11n -56dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -57dBm signal antenna
+ 0 -62dBm signal antenna 1 Protected 70us CF +QoS BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a Data I
+V:a369 Pad 20 KeyID 0
+
+----- STA (00:0F:92:FC:40:D8) monitor:
+19:04:52.473486 2144563156us tsft 3.0 Mb/s 2404 MHz 11b -53dBm signal -66dBm signal antenna 0 -53dBm signal antenna 1 0us B
+SSID:00:0f:92:fc:40:a1 DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:fc:40:a1 Beacon (PMDDL_g35) [6.0* 9.0 12.0* 18.0 24.0* 36.0 Mbit] E
+SS CH: 14, PRIVACY
+
+19:04:52.473925 2144564331us tsft 12.0 Mb/s 2404 MHz 11b -54dBm signal -67dBm signal antenna 0 -54dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 Acknowledgment
+
+19:04:52.474520 2144565105us tsft 12.0 Mb/s 2404 MHz 11b -55dBm signal -67dBm signal antenna 0 -55dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 Acknowledgment
+
+19:04:52.475552 2144566111us tsft 12.0 Mb/s 2404 MHz 11b -55dBm signal -67dBm signal antenna 0 -55dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 BA
+
+19:04:52.476267 2144566802us tsft 12.0 Mb/s 2404 MHz 11b -54dBm signal -68dBm signal antenna 0 -54dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 Acknowledgment
+
+19:04:52.479213 2144566721us tsft 4.5 Mb/s 2404 MHz 11b -53dBm signal -65dBm signal antenna 0 -53dBm signal antenna 1 Prote
+cted 0us DA:01:00:5e:0a:0a:0a BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 Data IV:38a6 Pad 20 KeyID 1
+
+19:04:52.481936 2144569449us tsft 4.5 Mb/s 2404 MHz 11b -53dBm signal -66dBm signal antenna 0 -53dBm signal antenna 1 Prote
+cted 0us DA:01:00:5e:0a:0a:0a BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 Data IV:38a7 Pad 20 KeyID 1
+
+19:04:52.482960 2144573503us tsft 12.0 Mb/s 2404 MHz 11b -55dBm signal -67dBm signal antenna 0 -55dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 BA
+
+19:04:52.485920 2144573434us tsft 4.5 Mb/s 2404 MHz 11b -53dBm signal -66dBm signal antenna 0 -53dBm signal antenna 1 Prote
+cted 0us DA:01:00:5e:0a:0a:0a BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 Data IV:38a8 Pad 20 KeyID 1
+
+19:04:52.486922 2144577266us tsft 12.0 Mb/s 2404 MHz 11b -55dBm signal -67dBm signal antenna 0 -55dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 BA
+
+19:04:52.489703 2144577229us tsft 4.5 Mb/s 2404 MHz 11b -53dBm signal -65dBm signal antenna 0 -53dBm signal antenna 1 Prote
+cted 0us DA:01:00:5e:0a:0a:0a BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 Data IV:38a9 Pad 20 KeyID 1
+
+19:04:52.490817 2144581379us tsft 12.0 Mb/s 2404 MHz 11b -54dBm signal -67dBm signal antenna 0 -54dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 BA
+
+19:04:52.491575 2144582107us tsft 12.0 Mb/s 2404 MHz 11b -55dBm signal -67dBm signal antenna 0 -55dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 Acknowledgment
+
+19:04:52.494686 2144582107us tsft 4.5 Mb/s 2404 MHz 11b -52dBm signal -66dBm signal antenna 0 -52dBm signal antenna 1 Prote
+cted 0us DA:01:00:5e:0a:0a:0a BSSID:00:0f:92:fc:40:a1 SA:00:0f:92:fc:40:d8 Data IV:38aa Pad 20 KeyID 1
+
+19:04:52.501181 2144591747us tsft 12.0 Mb/s 2404 MHz 11b -54dBm signal -67dBm signal antenna 0 -54dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 BA
+
+19:04:52.505734 2144596257us tsft 12.0 Mb/s 2404 MHz 11b -54dBm signal -67dBm signal antenna 0 -54dBm signal antenna 1 0us 
+RA:00:0f:92:fc:40:d8 BA
+
+
+2. WDS=1: 
+-------- AP (00:0F:92:FC:40:A1) monitor:
+11:22:27.903657 6.0 Mb/s [bit 15] 0us BSSID:00:0f:92:fc:40:a1 DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:fc:40:a1 Beacon (PMDDL_g35)
+ [6.0* 9.0 12.0* 18.0 24.0* 36.0 Mbit] ESS CH: 14, PRIVACY
+
+11:22:27.937543 106011121us tsft 2404 MHz 11n -52dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -52dBm signal antenna 
+0 -65dBm signal antenna 1 Protected 66us CF +QoS RA:00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b
+6:0f:63:36 Data IV: 10 Pad 20 KeyID 0
+
+11:22:27.938178 106011816us tsft 2404 MHz 11n -52dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -52dBm signal antenna 
+0 -64dBm signal antenna 1 Protected 66us CF +QoS RA:00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b
+6:0f:63:36 Data IV: 11 Pad 20 KeyID 0
+
+11:22:27.938949 106012590us tsft 2404 MHz 11n -52dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -52dBm signal antenna 
+0 -64dBm signal antenna 1 Protected 66us CF +QoS RA:00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b
+6:0f:63:36 Data IV: 12 Pad 20 KeyID 0
+
+11:22:27.939642 106013284us tsft 2404 MHz 11n -51dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -51dBm signal antenna 
+0 -64dBm signal antenna 1 Protected 66us CF +QoS RA:00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b
+6:0f:63:36 Data IV: 13 Pad 20 KeyID 0
+
+11:22:27.940294 106013380us tsft 2404 MHz 11n antenna 0 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 Protected 70us CF +QoS RA:
+00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b6:0f:63:36 Data IV: 14 Pad 20 KeyID 0
+
+11:22:27.940545 106014262us tsft 2404 MHz 11n -52dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -52dBm signal antenna 
+0 -64dBm signal antenna 1 Protected 70us CF +QoS RA:00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b
+6:0f:63:36 Data IV: 15 Pad 20 KeyID 0
+
+11:22:27.943121 106014366us tsft 2404 MHz 11n antenna 1 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 Protected 70us CF +QoS RA:
+00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b6:0f:63:36 Data IV: 16 Pad 20 KeyID 0
+
+11:22:27.943376 106017103us tsft 2404 MHz 11n -50dBm signal 65.0 Mb/s MCS 7 20 MHz long GI RX-STBC0 -50dBm signal antenna 
+0 -65dBm signal antenna 1 Protected 70us CF +QoS RA:00:0f:92:fc:40:a1 TA:00:0f:92:fc:40:d8 DA:01:00:5e:0a:0a:0a SA:00:50:b
+6:0f:63:36 Data IV: 17 Pad 20 KeyID 0
+
+-------- STA (00:0F:92:FC:40:D8) monitor:
+
+19:31:00.290702 105984070us tsft 3.0 Mb/s 2404 MHz 11b -51dBm signal -57dBm signal antenna 0 -53dBm signal antenna 1 0us BS
+SID:00:0f:92:fc:40:a1 DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:fc:40:a1 Beacon (PMDDL_g35) [6.0* 9.0 12.0* 18.0 24.0* 36.0 Mbit] ES
+S CH: 14, PRIVACY
+19:31:00.317166 106011343us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 Acknowledgment
+19:31:00.317844 106012036us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 Acknowledgment
+19:31:00.318632 106012811us tsft 12.0 Mb/s 2404 MHz 11b -53dBm signal -59dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 Acknowledgment
+19:31:00.319339 106013505us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 Acknowledgment
+19:31:00.320306 106014479us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -53dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 BA
+19:31:00.323285 106017320us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 BA
+19:31:00.324249 106018417us tsft 12.0 Mb/s 2404 MHz 11b -53dBm signal -59dBm signal antenna 0 -55dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 BA
+19:31:00.326052 106020099us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 BA
+19:31:00.326634 106020821us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 Acknowledgment
+19:31:00.329179 106023351us tsft 12.0 Mb/s 2404 MHz 11b -52dBm signal -58dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 BA
+19:31:00.331355 106025518us tsft 12.0 Mb/s 2404 MHz 11b -53dBm signal -59dBm signal antenna 0 -54dBm signal antenna 1 0us R
+A:00:0f:92:fc:40:d8 BA
+
+Another symptom is that, in WDS=0, changing AP's mcast rate can affect this mcast T/P. For example, on AP:
+root@UserDevice:~# uci set wireless.default_radio0.mcast_rate=36	// default is 9Mbps
+This will increase the the mcast TP from STA--->AP from 15Mbps to 21Mbps.
+
+Capture the tcpdump log to a cap file on the STA when WDS=0, I fould lots of packets sent by AP:
+Receiver address: IPv4mcast_0a:0a:0a (01:00:5e:0a:0a:0a)	// mcast 224.10.10.10 from STA
+Transmitter address: Microhar_fc:40:a1 (00:0f:92:fc:40:a1)	// AP re-broadcasts the mcast data from STA
+Destination address: IPv4mcast_0a:0a:0a (01:00:5e:0a:0a:0a)
+Source address: Microhar_fc:40:d8 (00:0f:92:fc:40:d8)
+
+AP re-broadcasting the mcast data consumes the b/w so the TP drops. Badly, this can't be seen by the tcpdump on STA monitor!!! In addition, the AP tcpdump capture on the monitor doesn't capture its own transmission. Be careful!!!
+
+Dec 3, 2021
+FCC certification:
+1. Unit must use the original root password, no change. So must modify /usr/lib/webif/webif.sh so as not to force user change root password.
+2. Telnet service of the unit must be enabled.
+
+Dec 2, 2021
+Scan results are sorted: wpa_scan_result_compar(). Criterias are SNR(main), Max Rate and Frequency Band.
+
+How to get estimated throughput?
+_wpa_supplicant_event_scan_results() ---> wpa_supplicant_get_scan_results() ---> For every scann result do scan_est_throughput() ----> res->est_throughput = wpas_get_est_tpt(wpa_s, ies, ie_len, rate, snr); //rate is max_rate, snr is scan result snr. 
+
+wpas_get_est_tpt() : Based on the AP IEs to know the AP's capability. 
+
+Dec 1, 2021
+The STA roaming used in Repeater + AP scenario. 
+bgscan="simple:"$short_interval":-60:"$short_interval	// signal_threshold=-60dBm. long_interval=short_interval.
+// signal_threshold=-60 uses nl80211_signal_monitor(void *priv, int threshold (signal strength dBm), int hysteresis) function to monitor the signal strength with AP. 
+
+But note, bgscan_simple_timeout() is an unconditional timer. "bgscan simple: Request a background scan" is prited every {$short_interval+1} seconds no matter if the signal_threshold is triggered.
+
+I think the -60dBm (signal_threshold) is only to make the roaming granity more fine. Example, if short_interval=10, background trigger only happens once in 10 seconds. If there is a signal drop passing through the signal_threshold(-60dBm) inbetween 10 seconds, it immediately generates event EVENT_SIGNAL_CHANGE and triggers a scan. After a scan result is available, a roaming may happen. This makes roaming more realtime.
+
+When CQM is used, this can trigger EVENT_SIGNAL_CHANGE ---> bgscan_notify_signal_change() ---> bgscan_simple_notify_signal_change()-->bgscan_simple_timeout() ------> wpa_supplicant_trigger_scan(), that triggers a BackGround scan. 
+
+After a scan, it is time to decide to roam, this is how to decide roaming:
+EVENT_SCAN_RESULTS---> supplicant_event() ----> wpa_supplicant_event_scan_results()------->_wpa_supplicant_event_scan_results() --->  wpas_select_network_from_last_scan() -----> wpa_supplicant_need_to_roam(), here:
+
+roaming_thr only checks CURRENT BSS situation, not comparing with other APs.
+	if ((current_bss->level - current_bss->noise) > wpa_s->current_ssid->roaming_thr){
+           wpa_msg(wpa_s, MSG_INFO, "Current SNR is better than %d db, no roaming", wpa_s->current_ssid->roaming_thr);
+           return 0;
+        }
+Ths may cause issues when Repeater and AP have both similar SNR. STA will bump between Repeater and AP.
+
+Nov 24, 2021
+keyix = skb->data[hdrlen + 3] >> 6; // this is  the CCMP header(8 bytes). Byte4 has the keyid. This keyid matches this :
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/391/keyidx
+1
+
+Mesh@HW AES128, ping MP1->MP2, MP2 log:
+<0>[  115.252703] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1	//MP1 beacon
+<0>[  115.252718] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  120.372717] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1
+<0>[  120.372733] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  125.492700] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1
+<0>[  125.492714] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  130.612702] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1
+<0>[  130.612717] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  135.732704] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1
+<0>[  135.732719] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  137.048702] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=94, mgmt=0	//MP1 ARP req.BCAST
+<0>[  137.048715] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x60. keyix=1 to test common->keymap.	//CCMP hdr keyidx=1,not hw
+<0>[  137.048724] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  137.050548] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=4,decrypt_error=0, protected=1, skb->len=79, mgmt=1	//IGMP??
+<0>[  137.050562] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010002.
+
+<0>[  137.052156] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=4,decrypt_error=0, protected=1, skb->len=162, mgmt=0	//MP1 ICMP REQ1
+<0>[  137.052169] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010002.
+
+
+<0>[  138.049083] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=4,decrypt_error=0, protected=1, skb->len=162, mgmt=0	//MP1 ICMP REQ2
+<0>[  138.049099] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010002.
+
+
+<0>[  139.049587] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=4,decrypt_error=0, protected=1, skb->len=162, mgmt=0	//MP1 ICMP REQ3
+<0>[  139.049603] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010002.
+
+^C
+root@UserDevice:~# 
+
+Mesh@AES256 SW, ping MP1->MP2, MP2 log:
+<0>[  535.092859] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1
+<0>[  535.092874] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  540.212870] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1
+<0>[  540.212884] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  541.963421] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=94, mgmt=0
+<0>[  541.963434] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x60. keyix=1 to test common->keymap.
+<0>[  541.963442] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  541.965318] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=79, mgmt=1
+<0>[  541.965331] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x20. keyix=0 to test common->keymap.
+<0>[  541.965339] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  541.967343] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=162, mgmt=0
+<0>[  541.967354] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x20. keyix=0 to test common->keymap.
+<0>[  541.967362] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  541.967980] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=53, mgmt=1
+<0>[  541.967991] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x20. keyix=0 to test common->keymap.
+<0>[  541.967999] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  541.970500] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=53, mgmt=1
+<0>[  541.970513] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x20. keyix=0 to test common->keymap.
+<0>[  541.970522] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  542.964190] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=162, mgmt=0
+<0>[  542.964203] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x20. keyix=0 to test common->keymap.
+<0>[  542.964211] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  543.964645] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=1, skb->len=162, mgmt=0
+<0>[  543.964659] ==MHX(ath9k_cmn_rx_skb_postprocess)172.ccmp_hdr[3]=0x20. keyix=0 to test common->keymap.
+<0>[  543.964667] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+
+<0>[  545.332879] ==MHX(ath9k_cmn_rx_skb_postprocess)163.keyix=ff,decrypt_error=0, protected=0, skb->len=156, mgmt=1
+<0>[  545.332894] ==MHX(ath9k_cmn_rx_skb_postprocess)176.ah->sw_mgmt_crypto_tx/rx=0/0, rxs->flag=00010000.
+^C
+root@UserDevice:~# 
+
+
+
+NOv 22, 2021
+The flush h/w key patch solved the AP-STA ARP Bcast key issue. But bring another issue in mesh mode: MP3 frequent wifi command can break the link of MP1-MP2. Remove that patch, the Mesh functions perfectly.
+
+Removing that patch doesn't affect Mesh mode switch between H/W AES128 and AES256. Maybe that's because the Mesh mode ARP uses UCAST instead of BCAST? [More test switching encryption showed some problems too. So that patch can not be removed. ]
+
+Nov 19, 2021
+static void ar9003_hw_get_target_power_eeprom(struct ath_hw *ah,
+					      struct ath9k_channel *chan,
+					      u8 *targetPowerValT2)
+u8 *targetPowerValT2 format:
+
+enum ar9300_Rates {
+	ALL_TARGET_LEGACY_6_24,		// [0..3] legacy G rate
+	ALL_TARGET_LEGACY_36,
+	ALL_TARGET_LEGACY_48,
+	ALL_TARGET_LEGACY_54,
+	ALL_TARGET_LEGACY_1L_5L,	// [4..7] CCK
+	ALL_TARGET_LEGACY_5S,
+	ALL_TARGET_LEGACY_11L,
+	ALL_TARGET_LEGACY_11S,
+	ALL_TARGET_HT20_0_8_16,		// [8..21] 11n HT20 rate
+	ALL_TARGET_HT20_1_3_9_11_17_19,
+	ALL_TARGET_HT20_4,
+	ALL_TARGET_HT20_5,
+	ALL_TARGET_HT20_6,
+	ALL_TARGET_HT20_7,
+	ALL_TARGET_HT20_12,
+	ALL_TARGET_HT20_13,
+	ALL_TARGET_HT20_14,
+	ALL_TARGET_HT20_15,
+	ALL_TARGET_HT20_20,
+	ALL_TARGET_HT20_21,
+	ALL_TARGET_HT20_22,
+	ALL_TARGET_HT20_23,
+	ALL_TARGET_HT40_0_8_16,		//[22.35] 11n HT40 rate
+	ALL_TARGET_HT40_1_3_9_11_17_19,
+	ALL_TARGET_HT40_4,
+	ALL_TARGET_HT40_5,
+	ALL_TARGET_HT40_6,
+	ALL_TARGET_HT40_7,
+	ALL_TARGET_HT40_12,
+	ALL_TARGET_HT40_13,
+	ALL_TARGET_HT40_14,
+	ALL_TARGET_HT40_15,
+	ALL_TARGET_HT40_20,
+	ALL_TARGET_HT40_21,
+	ALL_TARGET_HT40_22,
+	ALL_TARGET_HT40_23,
+	ar9300RateSize,
+};
+
+Nov 17, 2021
+Odoo15, Ubnt16.04. Install om_account_accountant to odoo-customer-addons dir and install. In Accounting dashboard "Config" button triggers regular expression error. 
+
+The Postgresql log is like:
+
+2021-11-15 14:22:32 MST [13776-1] odoo@odoo_db ERROR:  invalid regular expression: quantifier operand invalid
+2021-11-15 14:22:32 MST [13776-2] odoo@odoo_db STATEMENT:  
+	            UPDATE account_move SET write_date = write_date WHERE id = (
+	                SELECT id FROM account_move
+	                WHERE journal_id = 3 AND name != '/' AND sequence_prefix !~ '^(?:.*?)(?:((?<=\D)|(?<=^))((19|20|21)?\d{2}))(?:\D+?)$'  AND id != 4 
+	                AND sequence_prefix = (SELECT sequence_prefix FROM account_move WHERE journal_id = 3 AND name != '/' AND sequence_prefix !~ '^(?:.*?)(?:((?<=\D)|(?<=^))((19|20|21)?\d{2}))(?:\D+?)$'  AND id != 4  ORDER BY id DESC LIMIT 1)
+	                ORDER BY sequence_number DESC
+	                LIMIT 1
+	            )
+	            RETURNING name;
+
+Then upgrade both Postgresql and psycopg2:
+
+jli@jli-OptiPlex-7060:~$ apt show postgresql
+Package: postgresql
+Version: 13+226.pgdg16.04+1
+Priority: optional
+Section: database
+Source: postgresql-common (226.pgdg16.04+1)
+Maintainer: Debian PostgreSQL Maintainers <team+postgresql@tracker.debian.org>
+Installed-Size: 70.7 kB
+Depends: postgresql-13
+
+
+odoo@jli-OptiPlex-7060:~$ pip3 show psycopg2
+Name: psycopg2
+Version: 2.9.2
+Summary: psycopg2 - Python-PostgreSQL Database Adapter
+Home-page: https://psycopg.org/
+Author: Daniele Varrazzo
+Author-email: daniele.varrazzo@gmail.com
+License: LGPL with exceptions
+Location: /opt/odoo/.local/lib/python3.8/site-packages
+Requires: 
+
+With this combo, the Accounting Config button has no complaints.
+
+Nov 12, 2021
+In a pMDDL1621 STA:
+root@UserDevice:~# uci show wireless | grep beac
+wireless.radio0.beacon_int='3000'
+
+root@UserDevice:~# echo 0x40201 > sys/kernel/debug/ieee80211/phy0/ath9k/debug
+root@UserDevice:~# iw dev wlan0 scan
+
+Kernel will log:
+<7>[29241.445841] ath: phy0: Set channel: 2013 MHz width: 0
+<7>[29241.445956] ath: phy0: Reset to 2013 MHz, HT40: 0 fastcc: 1
+<7>[29241.449338] ath: phy0: ah->misc_mode 0x10000004
+<7>[29241.453290] ath: phy0: Enabled BB Watchdog timeout (25 ms)
+<7>[29241.453319] ath: phy0: macaddr: 00:0f:92:fc:2d:bd, bssid: 00:00:00:00:00:00, bssidmask: ff:ff:ff:ff:ff:ff
+
+<7>[29244.485838] ath: phy0: Set channel: 2014 MHz width: 0
+<7>[29244.485949] ath: phy0: Reset to 2014 MHz, HT40: 0 fastcc: 1
+<7>[29244.489332] ath: phy0: ah->misc_mode 0x10000004
+<7>[29244.493284] ath: phy0: Enabled BB Watchdog timeout (25 ms)
+<7>[29244.493313] ath: phy0: macaddr: 00:0f:92:fc:2d:bd, bssid: 00:00:00:00:00:00, bssidmask: ff:ff:ff:ff:ff:ff
+
+<7>[29247.525842] ath: phy0: Set channel: 2015 MHz width: 0
+<7>[29247.525954] ath: phy0: Reset to 2015 MHz, HT40: 0 fastcc: 1
+<7>[29247.529336] ath: phy0: ah->misc_mode 0x10000004
+<7>[29247.533287] ath: phy0: Enabled BB Watchdog timeout (25 ms)
+<7>[29247.533317] ath: phy0: macaddr: 00:0f:92:fc:2d:bd, bssid: 00:00:00:00:00:00, bssidmask: ff:ff:ff:ff:ff:ff
+
+3sec apart each scan. In pMDDL -DCONFIG_MHX_ONLY_PASSIVE_SCAN so scan interval can be affected by the beacon interval.
+
+Change the beacon_int=100 and reboot unit. The scan interval becomes about 120mS.
+
+Nov 9, 2021
+Install odoo:
+https://www.cybrosys.com/blog/step-by-step-to-install-odoo-v10-on-ubuntu16-04-lts
+https://linuxize.com/post/install-odoo-11-on-ubuntu-16-04/
+
+Didn't create virtualenv. Manually start odoo.
+http://127.0.0.1:8069/web/database/selector: Master pwd=Microhard18, db_name=odoo_db, email=jeff@wiseraccounting.com, password=Microhard18_pwd. The email/password is used to login the odoo account as Administrator.
+
+General users should register through the WebGUI first.
+
+Nov 8, 2021
+AES256+Mesh mode is actually using AES128. Force pairwise to CCMP-256:
+
+root@UserDevice:~# cat var/run/wpa_supplicant-wlan0.conf 
+freq_list=2486
+
+country=US
+network={
+
+        ssid="PMDDLg351621"
+        key_mgmt=SAE
+        mode=5
+        fixed_freq=1
+        frequency=2486
+        disable_ht40=1
+        disable_vht=1
+        sae_password="qazwsxedc"
+        mesh_basic_rates=60
+        beacon_int=3000
+        mcast_rate=9
+        pairwise=CCMP-256
+	# group=CCMP-256		// Adding this doesn't work.
+}
+
+works in real AES256 mode. The log shows the MCAST uses rx->key->conf.cipher=fac04 AES128 cipher while the unicast pairwise uses AES256:
+<0>[  762.344985] =MHX(ieee80211_rx_h_decrypt)2181.rx->key->conf.cipher=fac0a,rx->key->flags=0,key=[0a,c7,2b,c1]
+
+
+Nov 3, 2021
+<0>[  630.665472] ==MHX(ath_key_delete)603.key->hw_key_idx=4
+This only happens when switching from HW AES128 to AES256, which means only HW decription was used before. Switching from AES256->AES128(HW) doesn't trigger this.
+
+In AES128(HW) mode, wifi command triggers this. In AES256 mode, multiple wifi commands don't trigger this.
+
+
+#ifdef CONFIG_MHX_ENCRYPT
+	/*
+	 * MHXJL Nov 3, 2021
+	 *	It's noted after switching from AES128(HW) to AES256, BCAST like ARP REQ is not decrypted on STA.
+	 *	RX_FLAG_DECRYPTED is wrongly set to 1 in this case in ath9k_cmn_rx_skb_postprocess():
+	*	} else if (ieee80211_has_protected(fc)
+	*	   && !decrypt_error && skb->len >= hdrlen + 4) {
+	*	keyix = skb->data[hdrlen + 3] >> 6;
+
+	*	if (test_bit(keyix, common->keymap))
+	*		rxs->flag |= RX_FLAG_DECRYPTED;	// wrongly set this flag if not cleared.
+	*}
+	 *	
+	 */
+	for(i=0; i<ATH_KEYMAX; i++)
+		clear_bit(i, common->keymap);
+#else
+	clear_bit(key->hw_key_idx + 64, common->keymap);
+#endif
+
 Oct 28, 2021
 A pair of BetaD pMDDL1621, AES25 mode. On AP, 
 
@@ -3661,6 +5466,12 @@ HT(4)0 Rate Mode:
 Auto : ht40=2
 Lower : ht40=-1
 Upper : ht40=1
+
+From Card.c:
+// ht40 = 0, dynamic ht40 mode is off
+// ht40 = -1, extension is at lower frequency
+// ht40 = 1, extension is higher frequency
+// ht40 = other, try higher frequency for extension first, then lower
 
 Rate: (HT40mc0 - HT40mc23)
 HT40mc7 : r=f7 
