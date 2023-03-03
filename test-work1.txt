@@ -1,3 +1,2878 @@
+Mar 3, 2023
+1) IW dump command:
+	noise floor:  	-99 dBm				// NL80211_STA_INFO_NOISE_FLOOR
+	noise ctl:  	-99 [-99, -99] dBm		// NL80211_STA_INFO_NOISE_FLOOR, chain
+
+struct station_info *sinfo->noise_floor = (s8)struct sta_info *sta->last_noisefloor;
+
+/**
+ * struct station_info - station information
+ *
+ * Station information filled by driver for get_station() and dump_station.
+ */
+
+
+/**
+ * struct sta_info - STA information
+ *
+ * This structure collects information about a station that
+ * mac80211 is communicating with.
+ */
+
+In ieee80211_rx_h_sta_process():
+(struct sta_info *)sta->last_noisefloor = (struct ieee80211_rx_status *)status->rx_rf_status->noise_floor;
+
+
+In ath9k_cmn_process_rssi():
+(struct ieee80211_rx_rf_status *)ptr_ddl_rxs = (struct ieee80211_rx_status *)rxs -> (struct ieee80211_rx_rf_status *)(rxs->rx_rf_status)
+
+ptr_ddl_rxs->noise_floor = (struct ath_hw *)ah->noise;
+
+
+In ath9k_hw_getnf():
+
+	ah->noise = ath9k_hw_getchan_noise(ah, chan, chan->noisefloor);
+
+
+
+2) cat sys/kernel/debug/ieee80211/phy0/ath9k/dump_nfcal:
+	Channel Noise Floor : -99
+seq_printf(file, "Channel Noise Floor : %d\n", ah->noise);
+
+
+/////////////////////////////////////////////////////////////////////
+G3.5 pX2, encryption type:
+Thu Dec 22 22:31:53 2022 user.notice root: ==MHX: FORM_encryption=[none]		// WebUI: Disabled
+Thu Dec 22 22:32:23 2022 user.notice root: ==MHX: FORM_encryption=[psk-tkip]		//	WPA(PSK)
+Thu Dec 22 22:32:41 2022 user.notice root: ==MHX: FORM_encryption=[psk2]		//	WPA2(PSK)
+Thu Dec 22 22:37:20 2022 user.notice root: ==MHX: FORM_encryption=[psk-mixed/tkip+aes]	//	WPA+WPA2(PSK)
+Thu Dec 22 22:37:47 2022 user.notice root: ==MHX: FORM_encryption=[wpa]			// WPA Enterprise(RADIUS)
+Thu Dec 22 22:38:09 2022 user.notice root: ==MHX: FORM_encryption=[wpa2]		// WPA2 Enterprise(RADIUS)
+Thu Dec 22 22:38:25 2022 user.notice root: ==MHX: FORM_encryption=[wpa-mixed+tkip+ccmp]	// WPA+WPA2 Enterprise(RADIUS)
+
+
+Mar 1, 2023
+IW dump command:
+        signal:         -73 [-73] dBm	//NL80211_STA_INFO_SIGNAL
+        signal avg:     -72 [-72] dBm	//NL80211_STA_INFO_SIGNAL_AVG
+
+sinfo->signal = (s8)last_rxstats->last_signal;, sinfo->signal_avg = -ewma_signal_read(&sta->rx_stats_avg.signal); <--- 
+sta->rx_stats.last_signal = status->signal; ewma_avg_signal_add(&sta->avg_rssi, status->rssi); <---
+
+//////////////////////////////////////////
+
+ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx),ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb),sta->last_rssi = status->rx_rf_status->rssi; sta->rx_stats.last_signal = status->signal; sta->last_noisefloor = status->rx_rf_status->noise_floor;<-----------
+ieee80211_rx_handlers(struct ieee80211_rx_data *rx, struct sk_buff_head *frames) <--------
+ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx) <-------
+ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx, struct sk_buff *skb),<--------
+__ieee80211_rx_handle_packet(struct ieee80211_hw *hw, struct ieee80211_sta *pubsta, struct sk_buff *skb, struct napi_struct *napi) <---------
+ieee80211_rx_napi(struct ieee80211_hw *hw, struct sk_buff *skb) <--------
+(3)ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb) <------------
+ath_rx_tasklet()
+///////////////////////////////////////////////////////////////////////
+
+ath9k_cmn_process_rssi(struct ath_rx_status *rx_stats, struct ieee80211_rx_status *rxs), rxs->signal = ah->noise + rx_stats->rs_rssi; <---
+(2)ath9k_rx_skb_preprocess(struct ath_rx_status *rx_stats, struct ieee80211_rx_status *rx_status), <---
+ath_rx_tasklet()
+
+////////////////////////////////////////////
+
+ath9k_hw_process_rxdesc_edma(struct ath_rx_status *rxs), fill rxs->rs_rssi, rxs->rs_rssi_ctl[] and rxs->rs_rssi_ext[] with Rx Descriptor<----
+ath_edma_get_buffers (struct ath_rx_status *rs)<----
+(1)ath_edma_get_next_rx_buf(struct ath_rx_status *rs)<----
+ath_rx_tasklet()[rs is cleared to all 0].
+
+Feb 27, 2023
+A pair of G3.5 pMDDL1624, open MESH. Looks like the PREP is already at robust rate:
+16:59:56.113721 922150380us tsft 4.5 Mb/s 2486 MHz 11b -51dBm signal -53dBm signal antenna 0 -57dBm signal antenna 1 0us BSSID:00:0f:92:11:11:11 DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:11:11:11 Action: MeshAction HWMP
+17:00:01.010498 927047077us tsft 3.0 Mb/s 2486 MHz 11b -53dBm signal -55dBm signal antenna 0 -57dBm signal antenna 1 82us BSSID:00:0f:92:11:11:11 DA:00:0f:92:fc:73:1d SA:00:0f:92:11:11:11 Action: MeshAction HWMP
+
+// the other MP:
+17:04:02.756194 1642782718us tsft 4.5 Mb/s 2486 MHz 11b -62dBm signal -62dBm signal antenna 0 -79dBm signal antenna 1 0us BSSID:00:0f:92:fc:73:1d DA:ff:ff:ff:ff:ff:ff SA:00:0f:92:fc:73:1d Action: MeshAction HWMP
+17:04:02.864981 1642891666us tsft 3.0 Mb/s 2486 MHz 11b -62dBm signal -62dBm signal antenna 0 -79dBm signal antenna 1 82us BSSID:00:0f:92:fc:73:1d DA:00:0f:92:11:11:11 SA:00:0f:92:fc:73:1d Action: MeshAction HWMP
+
+
+root@UserDevice:~# iwinfo wlan0 as
+00:0F:92:11:11:11  -53 dBm / -99 dBm (SNR 46)  10 ms ago
+        RX: 58.5 MBit/s, MCS 6, 20MHz                  22082 Pkts.
+        TX: 65.0 MBit/s, MCS 7, 20MHz                    335 Pkts.
+        expected throughput: 31.9 MBit/s
+
+
+//////////////////////////////RTL8812. ath9k modules not inserted.
+A working hostapd config of rtl8812 dongle:
+root@UserDevice:~# iwinfo wlan1 as
+00:0F:92:FC:0D:E8  -26 dBm / unknown (SNR -26)  28890 ms ago
+        RX: 6.5 MBit/s, MCS 0, 20MHz                       0 Pkts.
+        TX: unknown                                        0 Pkts.
+        expected throughput: unknown
+
+root@UserDevice:~# ping 192.168.168.2
+PING 192.168.168.2 (192.168.168.2): 56 data bytes
+64 bytes from 192.168.168.2: seq=0 ttl=64 time=3.598 ms
+^C
+--- 192.168.168.2 ping statistics ---
+1 packets transmitted, 1 packets received, 0% packet loss
+round-trip min/avg/max = 3.598/3.598/3.598 ms
+root@UserDevice:~# iwinfo wlan1 as
+00:0F:92:FC:0D:E8  -26 dBm / unknown (SNR -26)  1760 ms ago
+        RX: 6.5 MBit/s, MCS 0, 20MHz                       0 Pkts.
+        TX: unknown                                        0 Pkts.
+        expected throughput: unknown
+
+root@UserDevice:~# 
+root@UserDevice:~# 
+root@UserDevice:~# iwinfo 
+wlan1     ESSID: "PMDDL_g35-tplink"
+          Access Point: 14:EB:B6:7D:9B:1B
+          Mode: Master  Channel: 22 (2.412 GHz)
+          Center Channel 1: unknown 2: unknown
+          Tx-Power: 20 dBm  Link Quality: 70/70
+          Signal: -27 dBm  Noise(raw): unknown
+          Bit Rate: unknown
+          Encryption: WPA2 PSK (CCMP)
+          Type: nl80211  HW Mode(s): 802.11bgnac
+          Hardware: unknown [Generic MAC80211]
+          TX power offset: unknown
+          Frequency offset: unknown
+          Supports VAPs: no  PHY name: phy0
+
+root@UserDevice:~# cat /etc/config/wireless 
+
+config wifi-device 'radio0'
+        option type 'mac80211'
+        option country 'US'
+        option channel '87'
+        option hwmode '11ng'
+        option chanbw '10'
+        option txpower '20'
+        option distance '3000'
+        option path 'platform/qca953x_wmac'
+        option htmode 'HT20'
+        option channel_900 '15'
+        option channel_1800 '15'
+        option channel_mb '87'
+        option rf_band '150'
+        option txantenna '3'
+        option rxantenna '3'
+        option hw11ac_mode '1'
+        option disabled '0'
+
+config wifi-iface 'default_radio0'
+        option device 'radio0'
+        option ifname 'wlan0'
+        option network 'lan'
+        option mode 'ap'
+        option ssid 'PMDDL_g35'
+        option encryption 'psk2'
+        option key '1234567890'
+        option wds '1'
+
+config wifi-device 'radio1'
+        option type 'mac80211'
+        option country 'US'
+        option hwmode '11ng'
+        option chanbw '10'
+        option txpower '20'
+        option distance '3000'
+        option path 'platform/ehci-platform/usb1/1-1/1-1:1.0'
+        option htmode 'HT20'
+        option channel_900 '15'
+        option channel_1800 '15'
+        option channel_mb '87'
+        option rf_band '150'
+        option txantenna '3'
+        option rxantenna '3'
+        option disabled '0'
+        option channel '22'
+        option hw11ac_mode '1'
+
+config wifi-iface 'default_radio1'
+        option device 'radio1'
+        option ifname 'wlan1'
+        option network 'lan'
+        option mode 'ap'
+        option encryption 'psk2'
+        option key '1234567890'
+        option wds '1'
+        option ssid 'PMDDL_g35-tplink'
+
+
+config UCIMHT 'CHECKTAG'
+        option TM '1675796114'
+        option LRC 'DD'
+root@UserDevice:~# cat var/run/hostapd-
+hostapd-phy0.conf   hostapd-wlan1.psk   hostapd-wlan1.vlan
+root@UserDevice:~# cat var/run/hostapd-phy0.conf 
+driver=nl80211
+logger_syslog=127
+logger_syslog_level=2
+logger_stdout=127
+logger_stdout_level=2
+country_code=US
+ieee80211d=1
+hw_mode=g
+beacon_int=100
+dtim_period=2
+channel=22
+
+ieee80211n=1
+ht_coex=0
+ht_capab=[SHORT-GI-20][SHORT-GI-40][RX-STBC1][MAX-AMSDU-7935][DSSS_CCK-40]
+
+radio_config_id=6b22f0f1184e329d859b7ed23c2fecf2
+interface=wlan1
+ctrl_interface=/var/run/hostapd
+ap_isolate=1
+ap_max_inactivity=30
+bss_load_update_period=60
+chan_util_avg_period=600
+disassoc_low_ack=1
+preamble=1
+wmm_enabled=1
+ignore_broadcast_ssid=0
+uapsd_advertisement_enabled=1
+utf8_ssid=1
+multi_ap=0
+wpa_group_rekey=0
+wpa_ptk_rekey=0
+wpa_gmk_rekey=0
+wpa_passphrase=1234567890
+wpa_psk_file=/var/run/hostapd-wlan1.psk
+auth_algs=1
+wpa=2
+wpa_pairwise=CCMP
+ssid=PMDDL_g35-tplink
+bridge=br-lan
+wpa_disable_eapol_key_retries=0
+wpa_key_mgmt=WPA-PSK
+okc=0
+disable_pmksa_caching=1
+dynamic_vlan=0
+vlan_naming=1
+vlan_file=/var/run/hostapd-wlan1.vlan
+config_id=2ae423d718af204b4d87956e2ad2db37
+wds_sta=1
+bssid=00:00:00:00:00:00
+
+
+
+
+Feb 24, 2023
+192.168.221.2 Fedora 28 server. root@qazwsx. Install FreeRadius.
+[root@localhost ~]# useradd jli
+[root@localhost ~]# passwd jli // Microhard18
+
+[root@localhost jli]# yum install freeradius freeradius-mysql freeradius-utils mysql-server
+reboot the server.
+[root@localhost jli]# systemctl start radiusd.service
+[root@localhost jli]# systemctl status radiusd.service
+● radiusd.service - FreeRADIUS high performance RADIUS server.
+   Loaded: loaded (/usr/lib/systemd/system/radiusd.service; disabled; vendor preset: disabled)
+   Active: active (running) since Fri 2023-02-24 10:04:27 MST; 9s ago
+  Process: 1562 ExecStart=/usr/sbin/radiusd -d /etc/raddb (code=exited, status=0/SUCCESS)
+  Process: 1560 ExecStartPre=/usr/sbin/radiusd -C (code=exited, status=0/SUCCESS)
+  Process: 1559 ExecStartPre=/bin/chgrp -R radiusd /etc/raddb/certs/ (code=exited, status=0/SUCCESS)
+  Process: 1554 ExecStartPre=/bin/sh /etc/raddb/certs/bootstrap (code=exited, status=0/SUCCESS)
+  Process: 1553 ExecStartPre=/bin/chown -R radiusd.radiusd /var/run/radiusd (code=exited, status=0/SUCCESS)
+ Main PID: 1564 (radiusd)
+    Tasks: 6 (limit: 2214)
+   Memory: 83.7M
+   CGroup: /system.slice/radiusd.service
+           └─1564 /usr/sbin/radiusd -d /etc/raddb
+
+Feb 24 10:04:26 localhost.localdomain systemd[1]: Starting FreeRADIUS high performance RADIUS server....
+Feb 24 10:04:26 localhost.localdomain sh[1554]: server.pem: OK
+Feb 24 10:04:27 localhost.localdomain systemd[1]: Started FreeRADIUS high performance RADIUS server..
+[root@localhost jli]# 
+[root@localhost jli]# netstat -alnup4 | grep -E "1812|1813"
+udp        0      0 0.0.0.0:1812            0.0.0.0:*                           1564/radiusd        
+udp        0      0 0.0.0.0:1813            0.0.0.0:*                           1564/radiusd        
+udp        0      0 127.0.0.1:18120         0.0.0.0:*                           1564/radiusd        
+[root@localhost jli]# 
+[root@localhost jli]# systemctl enable radiusd.service 
+Created symlink /etc/systemd/system/multi-user.target.wants/radiusd.service → /usr/lib/systemd/system/radiusd.service.
+
+If firewalld is running, open access to RADIUS service.
+
+firewall-cmd --add-service=radius --permanent
+firewall-cmd --reload
+
+Start the Mysql server:
+[root@localhost jli]# service mariadb start
+Redirecting to /bin/systemctl start mariadb.service
+[root@localhost jli]# service mariadb status
+Redirecting to /bin/systemctl status mariadb.service
+● mariadb.service - MariaDB 10.2 database server
+   Loaded: loaded (/usr/lib/systemd/system/mariadb.service; disabled; vendor preset: disabled)
+   Active: active (running) since Fri 2023-02-24 10:20:59 MST; 3s ago
+     Docs: man:mysqld(8)
+           https://mariadb.com/kb/en/library/systemd/
+  Process: 2282 ExecStartPost=/usr/libexec/mysql-check-upgrade (code=exited, status=0/SUCCESS)
+  Process: 2145 ExecStartPre=/usr/libexec/mysql-prepare-db-dir mariadb.service (code=exited, status=0/SUCCESS)
+  Process: 2121 ExecStartPre=/usr/libexec/mysql-check-socket (code=exited, status=0/SUCCESS)
+ Main PID: 2251 (mysqld)
+   Status: "Taking your SQL requests now..."
+    Tasks: 30 (limit: 2214)
+   Memory: 92.6M
+   CGroup: /system.slice/mariadb.service
+           └─2251 /usr/libexec/mysqld --basedir=/usr
+[root@localhost jli]# mysql -u root -p
+Enter password: 		// Just Enter here. There is no initial root user password
+MariaDB [(none)]> status
+--------------
+mysql  Ver 15.1 Distrib 10.2.22-MariaDB, for Linux (x86_64) using readline 5.1
+
+Connection id:		8
+Current database:	
+Current user:		root@localhost
+SSL:			Not in use
+Current pager:		stdout
+Using outfile:		''
+Using delimiter:	;
+Server:			MariaDB
+Server version:		10.2.22-MariaDB MariaDB Server
+Protocol version:	10
+Connection:		Localhost via UNIX socket
+Server characterset:	latin1
+Db     characterset:	latin1
+Client characterset:	utf8
+Conn.  characterset:	utf8
+UNIX socket:		/var/lib/mysql/mysql.sock
+Uptime:			2 min 55 sec
+
+Threads: 7  Questions: 4  Slow queries: 0  Opens: 17  Flush tables: 1  Open tables: 11  Queries per second avg: 0.022
+
+// change the MariaDB root user password:
+MariaDB [(none)]> ALTER USER 'root'@'localhost' IDENTIFIED BY "mysql_root_pwd";
+Query OK, 0 rows affected (0.00 sec)
+
+MariaDB [(none)]> flush privileges;
+Query OK, 0 rows affected (0.00 sec)
+
+MariaDB [(none)]> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| test               |
++--------------------+
+4 rows in set (0.00 sec)
+
+// Create a Radius DB named "radius"
+[root@localhost jli]# mysql -uroot -p	//root user password is mysql_root_pwd
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON radius.* TO radius@localhost IDENTIFIED BY "radius_pwd";	//user radius@localhost, pwssword="radius_pwd"
+MariaDB [(none)]> flush privileges;
+MariaDB [(none)]> use radius;
+Database changed
+MariaDB [radius]> SOURCE /etc/raddb/mods-config/sql/main/mysql/schema.sql;
+MariaDB [radius]> show tables;
++------------------+
+| Tables_in_radius |
++------------------+
+| nas              |
+| radacct          |
+| radcheck         |
+| radgroupcheck    |
+| radgroupreply    |
+| radpostauth      |
+| radreply         |
+| radusergroup     |
++------------------+
+8 rows in set (0.00 sec)
+
+// Create config file
+[root@localhost jli]# ln -s /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/
+[root@localhost jli]# ll /etc/raddb/mods-enabled/sql 
+lrwxrwxrwx 1 root root 29 Feb 24 11:06 /etc/raddb/mods-enabled/sql -> /etc/raddb/mods-available/sql
+And edit this file with:
+dialect = "mysql"
+	server = "localhost"
+        port = 3306
+        login = "radius"
+        password = "radius_pwd"
+radius_db = "radius"
+read_clients = yes
+
+[root@localhost jli]# ll /etc/raddb/mods-available/sql
+-rw-r----- 1 root radiusd 8675 Feb 24 11:10 /etc/raddb/mods-available/sql
+[root@localhost jli]# ll /etc/raddb/mods-enabled/sql 
+[root@localhost jli]# ll /etc/raddb/mods-enabled/sql 
+lrwxrwxrwx 1 root root 29 Feb 24 11:06 /etc/raddb/mods-enabled/sql -> /etc/raddb/mods-available/sql
+
+// So change the group of this soft link:
+[root@localhost jli]# chgrp -h radiusd /etc/raddb/mods-enabled/sql 
+[root@localhost jli]# ll /etc/raddb/mods-enabled/sql 
+lrwxrwxrwx 1 root radiusd 29 Feb 24 11:06 /etc/raddb/mods-enabled/sql -> /etc/raddb/mods-available/sql
+
+// Test
+By default, the file /etc/raddb/clients.conf should contain the localhost as client:
+client localhost {
+    ipaddr = 127.0.0.1
+    secret = testing123
+}
+[root@localhost jli]# vi /etc/raddb/users
+# MHXJL: Enable this test user
+bob     Cleartext-Password := "hello"
+        Reply-Message := "Hello, %{User-Name}"
+
+$ systemctl stop freeradius.service
+$ freeradius -X
+
+In another ssh console:
+[root@localhost ~]# radtest bob hello 127.0.0.1 10 testing123
+Sent Access-Request Id 162 from 0.0.0.0:36887 to 127.0.0.1:1812 length 73
+	User-Name = "bob"
+	User-Password = "hello"
+	NAS-IP-Address = 127.0.0.1
+	NAS-Port = 10
+	Message-Authenticator = 0x00
+	Cleartext-Password = "hello"
+Received Access-Accept Id 162 from 127.0.0.1:1812 to 127.0.0.1:36887 length 32
+	Reply-Message = "Hello, bob"
+[root@localhost ~]# 
+
+So far the test is ok!
+
+// Config FreeRadius to accept all IPs, and some other changes:
+[root@localhost jli]# vi /etc/raddb/clients.conf
+client localhost {
+        # MHXJL ipaddr = 127.0.0.1
+        ipaddr = *
+
+[root@localhost jli]# vi /etc/raddb/users
+# MHXJL: Enable this test user
+bob_the_test    Cleartext-Password := "hello-bob-the-test"
+        Reply-Message := "Hello, %{User-Name}"
+
+
+// Now set up MIcrohard BulletPlus AC AP-STA
+// AP setting:
+SSID	
+G5-AC-40-ap
+Encryption Type	
+WPA2 Enterprise (RADIUS)
+RADIUS Server Address	
+192.168.221.2
+RADIUS Server Port	
+1812
+RADIUS Server Key	
+testing123
+  Show Password
+Accounting Server Address	
+192.168.221.2
+Accounting Server Port	
+1813
+Accounting Sever Secret	
+testing123
+  Show Password
+NAS Identitifier	
+localhost
+
+
+//STA setting:
+SSID	
+G5-AC-40-ap
+Encryption Type	
+WPA2 Enterprise (RADIUS)
+RADIUS Identity	
+bob_the_test
+RADIUS Password	
+hello-bob-the-test
+
+[NOTE:]: In 802.11x, the PSK is not important. In AP the key is:
+root@G5-AC-40-ap:~# uci show wireless | grep key
+wireless.default_radio0.key='testing123'
+
+In STA the key is:
+root@G5-AC-31-sta:~# uci show wireless | grep key
+wireless.default_radio0.key='G5TESTWIFI'
+
+
+Feb 23, 2023
+rtl8812au chip (88XXau.ko) driver works in WPA-PSK now. The key point: cfg80211.h must match the pMDDL's cfg80211.h which is heavily modified by pMDDL products. By default the rtl8812au goes to Linux kernel directory and uses the kernel's cfg80211.h., which is a mis-match with pMDDL's. The symptom I have experienced is that the structure : struct station_info {}. 
+const u8 *assoc_req_ies;
+size_t assoc_req_ies_len;
+Can NOT be passed from 88XXau.ko:
+<0>[ 1709.971825] ==MHX(rtw_cfg80211_indicate_sta_assoc)4518. sinfo.assoc_req_ies_len=87
+to the cfg80211.ko:
+<0>[ 1709.971902] ==MHX(nl80211_send_station)5701.sinfo->assoc_req_ies_len=87.IE=. 
+That mis-match caused wrong assoc_req_ies_len and assoc_req_ies to be passed. Because the definition of the struct station_info {} are different in pMDDL and Linux kernel tree.
+
+Feb 21, 2023
+FullMAC
+FullMAC is a term used to describe a type of wireless card where the MLME is managed in hardware. You would not use mac80211 to write a FullMAC wireless driver.
+SoftMAC
+SoftMAC is a term used to describe a type of WNIC where the MLME is expected to be managed in software. mac80211 is a driver API for SoftMAC WNIC, for example.
+
+MLME
+MLME Stands for Media Access Control (MAC) Sublayer Management Entity. MLME is the management entity where the Physical layer (PHY) MAC state machines reside. Examples of states a MLME may assist in reaching:
+
+Authenticate
+Deauthenticate
+Associate
+Disassociate
+Reassociate
+Beacon
+Probe mac80211's MLME management implementation is currently handled by net/mac80211/mlme.c. This handles only the client-side MLME.
+
+
+CONFIG_WIRELESS_EXT: This option enables the legacy wireless extensions (wireless network interface configuration via ioctls.). Say Y unless you've upgraded all your userspace to use nl80211 instead of wireless extensions.
+
+Feb 17, 2023
+When sole chain1 is used (rxchainmask=2), still need to NF calibrate chain0. Otherwise sole chain1 doesn't receive properly. Only very strong signal can be received. Use this patch.
+
+--- a/drivers/net/wireless/ath/ath9k/calib.c
++++ b/drivers/net/wireless/ath/ath9k/calib.c
+@@ -299,6 +299,16 @@ int ath9k_hw_loadnf(struct ath_hw *ah, s
+        if (ah->caldata)
+                h = ah->caldata->nfCalHist;
+
++#ifdef CONFIG_STEP_ONEMHZ
++       /*
++        * MHXJL, Feb 2023:
++        *      Refer to ART ar9300_load_nf() and ar9300_upload_noise_floor().
++        */
++       if(ah->rxchainmask == 0x2)
++               if (AR_SREV_9531(ah))
++                       chainmask = 0x3;                // 000 011 for all 2 chains.
++#endif
++
+        ENABLE_REG_RMW_BUFFER(ah);
+        for (i = 0; i < NUM_NF_READINGS; i++) {
+                if (chainmask & (1 << i)) {
+--- a/drivers/net/wireless/ath/ath9k/ar9003_phy.c
++++ b/drivers/net/wireless/ath/ath9k/ar9003_phy.c
+@@ -1300,9 +1300,20 @@ static void ar9003_hw_do_getnf(struct at
+
+        int16_t nf;
+        int i;
++       int rxchainmask = ah->rxchainmask;
++
++#ifdef CONFIG_STEP_ONEMHZ
++       /*
++        * MHXJL, Feb 2023:
++        *      Refer to ART ar9300_load_nf() and ar9300_upload_noise_floor().
++        */
++       if(ah->rxchainmask == 0x2)
++               if (AR_SREV_9531(ah))
++                       rxchainmask = 0x3;              // 000 011 for all 2 chains.
++#endif
+
+        for (i = 0; i < AR9300_MAX_CHAINS; i++) {
+-               if (ah->rxchainmask & BIT(i)) {
++               if (rxchainmask & BIT(i)) {
+                        nf = MS(REG_READ(ah, ah->nf_regs[i]),
+                                         AR_PHY_CH_MINCCA_PWR);
+                        nfarray[i] = sign_extend32(nf, 8);
+
+
+Feb 15, 2023
+Sometimes vscode doesn't load Git Graph, complaining "Error loading webview: Error: Could not register service workers: InvalidStateError: Failed to register a ServiceWorker: The document is in an invalid state..". 
+
+This is because some vscode running in background. Just run "sudo killall code" to kill all running code and restart VScode solved this issue.
+
+////////////////////
+rxchainmask related registers:
+AR_PHY_RX_CHAINMASK	//	0xa2a0
+AR_PHY_CAL_CHAINMASK	//	0xa2c0
+{"BB_multichain_enable"        , "rx_chain_mask"               , 0x0000a2a0, 2 , 0 },
+{"BB_cal_chain_mask"           , "cal_chain_mask"              , 0x0000a2c0, 2 , 0 },
+AR_PHY_SWITCH_CHAIN_0	//	0xa284
+{"BB_switch_table_chn_b0"      , "switch_table_b_0"            , 0x0000a284, 11, 10},
+{"BB_switch_table_chn_b0"      , "switch_table_rx12_0"         , 0x0000a284, 9 , 8 },
+{"BB_switch_table_chn_b0"      , "switch_table_rx1_0"          , 0x0000a284, 7 , 6 },
+{"BB_switch_table_chn_b0"      , "switch_table_r_0"            , 0x0000a284, 5 , 4 },
+{"BB_switch_table_chn_b0"      , "switch_table_t_0"            , 0x0000a284, 3 , 2 },
+{"BB_switch_table_chn_b0"      , "switch_table_idle_0"         , 0x0000a284, 1 , 0 },
+AR_PHY_SWITCH_CHAIN_1	//	0xb284
+{"BB_switch_table_chn_b1"      , "switch_table_b_1"            , 0x0000b284, 11, 10},
+{"BB_switch_table_chn_b1"      , "switch_table_rx12_1"         , 0x0000b284, 9 , 8 },
+{"BB_switch_table_chn_b1"      , "switch_table_rx1_1"          , 0x0000b284, 7 , 6 },
+{"BB_switch_table_chn_b1"      , "switch_table_r_1"            , 0x0000b284, 5 , 4 },
+{"BB_switch_table_chn_b1"      , "switch_table_t_1"            , 0x0000b284, 3 , 2 },
+{"BB_switch_table_chn_b1"      , "switch_table_idle_1"         , 0x0000b284, 1 , 0 },
+
+Feb 10, 2023
+1. 
+class CI_Controller {
+private static $instance;
+public function __construct()
+	{
+		self::$instance =& $this;
+
+		// Assign all the class objects that were instantiated by the
+		// bootstrap file (CodeIgniter.php) to local class variables
+		// so that CI can run as one big super object.
+		foreach (is_loaded() as $var => $class)
+		{
+			$this->$var =& load_class($class);	//these are all object variables added into CI_Controller class. Not by class definition.
+		}
+
+		$this->load =& load_class('Loader', 'core');	//load is NOT a member of CI_Controller class by class definition. But "load" is an object [class Loader] of CI_Controller. It is a object variable dynamically appended to class CI_Controller. Check function &load_class().
+		$this->load->initialize();
+		log_message('info', 'Controller Class Initialized');
+	}
+
+2.About C$CI->db:
+In class CI_Loader {
+public function database(){
+
+$CI->db =& DB($params, $query_builder);
+
+After this->load(Loader object)->database(), this->db object variable is created.
+
+3.About the CI_Model::load object.
+CI_Model doesn't have the load object[class Loader] variable. But 
+class CI_Model {
+	/**
+	 * __get magic
+	 *
+	 * Allows models to access CI's loaded classes using the same
+	 * syntax as controllers.
+	 *
+	 * @param	string	$key
+	 */
+	public function __get($key)
+	{
+		// Debugging note:
+		//	If you're here because you're getting an error message
+		//	saying 'Undefined Property: system/core/Model.php', it's
+		//	most likely a typo in your model code.
+		return get_instance()->$key;
+	}
+
+This magic method makes CI_Model access CI_Controller objects.So Model can access whatever objects the Controller has.
+
+Feb 9, 2023
+1. How the chain limit txpower:
+u16 ath9k_hw_get_scaled_power(struct ath_hw *ah, u16 power_limit,
+			      u8 antenna_reduction)
+{
+	u16 reduction = antenna_reduction;
+
+	/*
+	 * Reduce scaled Power by number of chains active
+	 * to get the per chain tx power level.
+	 */
+	switch (ar5416_get_ntxchains(ah->txchainmask)) {
+	case 1:
+		break;
+	case 2:
+		reduction += POWER_CORRECTION_FOR_TWO_CHAIN;	// 6  /* 10*log10(2)*2 */
+		break;
+	case 3:
+		reduction += POWER_CORRECTION_FOR_THREE_CHAIN;	// 10 /* 10*log10(3)*2 */
+		break;
+	}
+
+	if (power_limit > reduction)
+		power_limit -= reduction;
+	else
+		power_limit = 0;
+
+	return min_t(u16, power_limit, MAX_RATE_POWER);
+}
+
+The returned scaledPower will reflect chain usage in power.
+
+2. How the bandwidth limit txpower:
+static inline int
+ieee80211_chandef_max_power(struct cfg80211_chan_def *chandef)
+{
+	switch (chandef->width) {
+	case NL80211_CHAN_WIDTH_5:
+		return min(chandef->chan->max_reg_power - 6,
+			   chandef->chan->max_power);
+	case NL80211_CHAN_WIDTH_10:
+		return min(chandef->chan->max_reg_power - 3,
+			   chandef->chan->max_power);
+#if defined CONFIG_MHX_CE_MODE_SUPPORT
+	case NL80211_CHAN_WIDTH_1:
+		return min(chandef->chan->max_reg_power - 12,
+			   chandef->chan->max_power);
+	case NL80211_CHAN_WIDTH_2:
+		return min(chandef->chan->max_reg_power - 9,
+			   chandef->chan->max_power);
+#endif
+	default:
+		break;
+	}
+	return chandef->chan->max_power;
+}
+
+
+Feb 7, 2023
+ struct cfg80211_ops structure is in between cfg8211 and mac80211. 
+
+/**
+ * struct cfg80211_ops - backend description for wireless configuration
+ *
+ * This struct is registered by fullmac card drivers and/or wireless stacks
+ * in order to handle configuration requests on their interfaces.
+**/
+
+For ath9k mac80211 stack:
+
+const struct cfg80211_ops mac80211_config_ops = {
+	.add_virtual_intf = ieee80211_add_iface,
+	.del_virtual_intf = ieee80211_del_iface,
+	.change_virtual_intf = ieee80211_change_iface,
+	.start_p2p_device = ieee80211_start_p2p_device,
+	.stop_p2p_device = ieee80211_stop_p2p_device,
+	.add_key = ieee80211_add_key,
+...
+
+For rtl8812 USB wifi dongle:
+static struct cfg80211_ops rtw_cfg80211_ops = {
+	.change_virtual_intf = cfg80211_rtw_change_iface,
+	.add_key = cfg80211_rtw_add_key,
+	.get_key = cfg80211_rtw_get_key,
+	.del_key = cfg80211_rtw_del_key,
+	.set_default_key = cfg80211_rtw_set_default_key,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
+	.set_default_mgmt_key = cfg80211_rtw_set_default_mgmt_key,
+#endif
+#if defined(CONFIG_GTK_OL) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0))
+	.set_rekey_data = cfg80211_rtw_set_rekey_data,
+#endif /*CONFIG_GTK_OL*/
+	.get_station = cfg80211_rtw_get_station,
+	.scan = cfg80211_rtw_scan,
+...
+
+
+F/W should be in:
+root@UserDevice:~# ls lib/firmware/
+regulatory.db     rtl8812ae_fw.bin  soc_wmac.eeprom
+But even if rtl8812ae_fw.bin is not here, the the dongle still works as AP. So this fw is no use.
+
+Feb 6, 2023
+Region domain settings:
+
+Boot up with country=US :
+[   16.697942] random: crng init done
+[   16.707941] usbcore: registered new interface driver usbserial
+[   16.708557] usbcore: registered new interface driver usbserial_generic
+[   16.709178] usbserial: USB Serial support registered for generic
+[   16.847529] xt_time: kernel timezone is -0000
+[   16.865650] usbcore: registered new interface driver ax88179_178a
+[   16.877677] usbcore: registered new interface driver cdc_ether
+[   16.999417] =MHX(reg_process_pending_hints)2843. lr=86d3c5c8, lr->processed=1
+[   16.999429] =MHX(reg_process_pending_hints)2850. 
+[   16.999434] =MHX(reg_process_pending_hints)2863. 
+[   16.999441] =MHX(reg_process_hint)2773. initiator=0
+[   16.999457] =MHX(reg_process_hint)2796. treatment=0
+[   17.009138] usbcore: registered new interface driver cp210x
+[   17.009754] usbserial: USB Serial support registered for cp210x
+[   17.037733] usbcore: registered new interface driver ftdi_sio
+[   17.038583] usbserial: USB Serial support registered for FTDI USB Serial Device
+[   17.253862] usbcore: registered new interface driver pl2303
+[   17.254482] usbserial: USB Serial support registered for pl2303
+[   17.274865] PPP generic driver version 2.4.2
+[   17.286787] NET: Registered protocol family 24
+[   17.294502] usbcore: registered new interface driver rndis_host
+[   17.486778] l2tp_ppp: PPPoL2TP kernel driver, V2.0
+[   17.584110] ==MHX(wiphy_new_nm)406. name=  (null), size=135616, start_ap=86da48ec,stpp_ap=86da3648. ops->sched_scan_start=86d9ff78,ops->sched_scan_stop=86d9ff50
+[   17.584959] ath9k qca953x_wmac: Direct firmware load for soc_wmac.eeprom failed with error -2
+[   17.584970] ath9k qca953x_wmac: Falling back to user helper
+[   18.068887] ath: EEPROM regdomain sanitized
+[   18.068908] ath: EEPROM regdomain: 0x64
+[   18.068912] ath: EEPROM indicates we should expect a direct regpair map
+[   18.068947] ath: Country alpha2 being used: 00
+[   18.068950] ath: Regpair used: 0x64
+[   18.148139] ieee80211 phy0: Selected rate control algorithm 'minstrel_ht'
+[   18.148176] ==MHX(wiphy_register)756. wiphy->max_acl_mac_addrs=0, wiphy->flags=f5c5e8, rdev->ops->set_mac_acl=  (null)
+[   18.149511] ==MHX(ath_reg_notifier_apply)543.request->dfs_region=0, request->initiator=0.
+[   18.149524] ==MHX(ath_reg_notifier_apply)552.request->dfs_region=0, request->initiator=0.
+[   18.173724] ieee80211 phy0: Atheros AR9531 Rev:2 mem=0xb8100000, irq=47
+[   18.175722] kmodloader: done loading kernel modules from /etc/modules.d/*
+[   18.947381] mhx-bsp: WD is late by 110 ms (monitor only)
+[   21.444605] mhx-bsp: WD is late by 80 ms (monitor only)
+[   24.601504] syn-lmx2572 spi0.1: no platform data? using default
+[   24.615110] mhx-bsp: WD is enabled
+[   34.215995] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+[   36.422945] eth0: link up (1000Mbps/Full duplex)
+[   36.425095] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+[   45.513271] eth0: link down
+[   45.695675] br-lan: port 1(eth0) entered blocking state
+[   45.695693] br-lan: port 1(eth0) entered disabled state
+[   45.712787] device eth0 entered promiscuous mode
+[   46.435473] br-wan: port 1(eth1) entered blocking state
+[   46.435492] br-wan: port 1(eth1) entered disabled state
+[   46.435881] device eth1 entered promiscuous mode
+[   47.439046] eth0: link up (1000Mbps/Full duplex)
+[   47.439113] br-lan: port 1(eth0) entered blocking state
+[   47.439126] br-lan: port 1(eth0) entered forwarding state
+[   49.866538] =MHX(reg_process_pending_hints)2843. lr=86c15980, lr->processed=1
+[   49.866551] =MHX(reg_process_pending_hints)2850. 
+[   49.866556] =MHX(reg_process_pending_hints)2863. 
+[   49.866563] =MHX(reg_process_hint)2773. initiator=1
+[   49.866607] =MHX(reg_process_hint)2796. treatment=0
+[   49.866655] handle_channel: chan->flags=00000030,chan->center_freq=1624 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866663] handle_channel: chan->flags=00000030,chan->center_freq=1625 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866671] handle_channel: chan->flags=00000030,chan->center_freq=1626 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866679] handle_channel: chan->flags=00000030,chan->center_freq=1627 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866688] handle_channel: chan->flags=00000030,chan->center_freq=1628 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866696] handle_channel: chan->flags=00000030,chan->center_freq=1629 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866704] handle_channel: chan->flags=00000030,chan->center_freq=1630 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866712] handle_channel: chan->flags=00000030,chan->center_freq=1631 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866720] handle_channel: chan->flags=00000030,chan->center_freq=1632 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866729] handle_channel: chan->flags=00000030,chan->center_freq=1633 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866737] handle_channel: chan->flags=00000030,chan->center_freq=1634 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866745] handle_channel: chan->flags=00000030,chan->center_freq=1635 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866753] handle_channel: chan->flags=00000030,chan->center_freq=1636 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866761] handle_channel: chan->flags=00000030,chan->center_freq=1637 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866769] handle_channel: chan->flags=00000030,chan->center_freq=1638 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866777] handle_channel: chan->flags=00000030,chan->center_freq=1639 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866786] handle_channel: chan->flags=00000030,chan->center_freq=1640 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866794] handle_channel: chan->flags=00000030,chan->center_freq=1641 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866802] handle_channel: chan->flags=00000030,chan->center_freq=1642 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866810] handle_channel: chan->flags=00000030,chan->center_freq=1643 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.866818] handle_channel: chan->flags=00000030,chan->center_freq=1644 , chan->max_antenna_gain=10, chan->max_power=33
+................
+
+[   49.873889] handle_channel: chan->flags=00000030,chan->center_freq=2505 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.873897] handle_channel: chan->flags=00000030,chan->center_freq=2506 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.873905] handle_channel: chan->flags=00000030,chan->center_freq=2507 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.873914] handle_channel: chan->flags=00000030,chan->center_freq=2508 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.873922] handle_channel: chan->flags=00000030,chan->center_freq=2509 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.873930] handle_channel: chan->flags=00000030,chan->center_freq=2510 , chan->max_antenna_gain=10, chan->max_power=33
+[   49.874252] ==MHX(ath_reg_notifier_apply)543.request->dfs_region=1, request->initiator=1.
+[   49.874260] ==MHX(ath_reg_notifier_apply)552.request->dfs_region=1, request->initiator=1.
+[   49.874267] ==MHX(ath_reg_notifier_apply)570.request->dfs_region=1, request->initiator=1.
+[   49.874274] ==MHX(__ath_reg_dyn_country)499. request->initiator=1.
+[   49.874279] ==MHX(__ath_reg_dyn_country)505. request->initiator=1.
+[   49.874307] ==MHX(__ath_reg_dyn_country)510. request->initiator=1.
+[   49.874312] ath: EEPROM regdomain: 0x8348
+[   49.874316] ath: EEPROM indicates we should expect a country code
+[   49.874325] ath: doing EEPROM country->regdmn map search
+[   49.874332] ath: country maps to regdmn code: 0x3a
+[   49.874338] ath: Country alpha2 being used: US
+[   49.874342] ath: Regpair used: 0x3a
+[   49.874348] ath: regdomain 0x8348 dynamically updated by user
+[   49.951257] ==MHX(ieee80211_set_antenna_gain)2677
+[   49.951272] ==MHX(ieee80211_set_antenna_gain)2682. local->user_antenna_gain=0
+[   49.951288] ==MHX(ieee80211_hw_conf_chan)147. max reg power=33, local->user_power_level=-2147483648
+[   49.951296] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=0
+[   49.951304] ==MHX(ieee80211_hw_conf_chan)168. power=33,current user_power_level=0
+[   51.366852] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+[   51.366869] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=0
+[   51.366877] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=33
+[   51.387259] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[   51.400501] br-lan: port 2(wlan0) entered blocking state
+[   51.400521] br-lan: port 2(wlan0) entered disabled state
+[   51.406998] device wlan0 entered promiscuous mode
+[   51.411179] =MHX(reg_process_pending_hints)2843. lr=874c5380, lr->processed=1
+[   51.411192] =MHX(reg_process_pending_hints)2850. 
+[   51.411198] =MHX(reg_process_pending_hints)2863. 
+[   51.411204] =MHX(reg_process_hint)2773. initiator=1
+[   51.411212] =MHX(reg_process_hint)2796. treatment=1
+[   51.682953] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+[   51.682970] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=0
+[   51.682978] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+[   51.695632] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+[   51.695647] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=0
+[   51.695654] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+[   51.703628] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+[   51.703641] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=0
+[   51.703649] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+[   51.703740] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+[   51.703747] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=0
+[   51.703754] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+[   51.703982] IPv6: ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+[   51.704202] br-lan: port 2(wlan0) entered blocking state
+[   51.704215] br-lan: port 2(wlan0) entered forwarding state
+[   56.028180] got gpios: rs232=33 fdhd=34 ire=30 de=22 chip=1
+root@UserDevice:~# uci set wireless.radio0.country='FR'
+root@UserDevice:~# uci show wireless | grep gain
+wireless.radio0.antenna_gain='0'
+root@UserDevice:~# uci set wireless.radio0.antenna_gain=6
+root@UserDevice:~# wifi
+
+<0>[  788.330573] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+<0>[  788.330592] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=0
+<0>[  788.330600] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+<6>[  788.351153] br-lan: port 2(wlan0) entered disabled state
+<6>[  788.729285] device wlan0 left promiscuous mode
+<6>[  788.729459] br-lan: port 2(wlan0) entered disabled state
+<0>[  790.366529] =MHX(reg_process_pending_hints)2843. lr=874c5380, lr->processed=1
+<0>[  790.366544] =MHX(reg_process_pending_hints)2850. 
+<0>[  790.366550] =MHX(reg_process_pending_hints)2863. 
+<0>[  790.366556] =MHX(reg_process_hint)2773. initiator=1
+<0>[  790.366598] =MHX(reg_process_hint)2796. treatment=0
+<6>[  790.366647] handle_channel: chan->flags=00000030,chan->center_freq=1624 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.366655] handle_channel: chan->flags=00000030,chan->center_freq=1625 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.366664] handle_channel: chan->flags=00000030,chan->center_freq=1626 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.366672] handle_channel: chan->flags=00000030,chan->center_freq=1627 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.366681] handle_channel: chan->flags=00000030,chan->center_freq=1628 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.366689] handle_channel: chan->flags=00000030,chan->center_freq=1629 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.366698] handle_channel: chan->flags=00000030,chan->center_freq=1630 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.366706] handle_channel: chan->flags=00000030,chan->center_freq=1631 , chan->max_antenna_gain=10, chan->max_power=33
+
+................
+
+<6>[  790.374090] handle_channel: chan->flags=00000030,chan->center_freq=2508 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.374098] handle_channel: chan->flags=00000030,chan->center_freq=2509 , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  790.374107] handle_channel: chan->flags=00000030,chan->center_freq=2510 , chan->max_antenna_gain=10, chan->max_power=33
+<0>[  790.374428] ==MHX(ath_reg_notifier_apply)543.request->dfs_region=2, request->initiator=1.
+<0>[  790.374436] ==MHX(ath_reg_notifier_apply)552.request->dfs_region=2, request->initiator=1.
+<0>[  790.374443] ==MHX(ath_reg_notifier_apply)570.request->dfs_region=2, request->initiator=1.
+<0>[  790.374450] ==MHX(__ath_reg_dyn_country)499. request->initiator=1.
+<0>[  790.374456] ==MHX(__ath_reg_dyn_country)505. request->initiator=1.
+<0>[  790.374468] ==MHX(__ath_reg_dyn_country)510. request->initiator=1.
+<7>[  790.374474] ath: EEPROM regdomain: 0x80fa
+<7>[  790.374477] ath: EEPROM indicates we should expect a country code
+<7>[  790.374483] ath: doing EEPROM country->regdmn map search
+<7>[  790.374488] ath: country maps to regdmn code: 0x37
+<7>[  790.374496] ath: Country alpha2 being used: FR
+<7>[  790.374500] ath: Regpair used: 0x37
+<7>[  790.374505] ath: regdomain 0x80fa dynamically updated by user
+<0>[  790.507860] ==MHX(ieee80211_set_antenna_gain)2677
+<0>[  790.507876] ==MHX(ieee80211_set_antenna_gain)2682. local->user_antenna_gain=6
+<0>[  790.507889] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+<0>[  790.507897] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=6
+<0>[  790.507905] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+<0>[  792.006824] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+<0>[  792.006843] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=6
+<0>[  792.006850] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+<6>[  792.038802] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
+<6>[  792.068373] br-lan: port 2(wlan0) entered blocking state
+<6>[  792.068395] br-lan: port 2(wlan0) entered disabled state
+<6>[  792.077850] device wlan0 entered promiscuous mode
+<0>[  792.082034] =MHX(reg_process_pending_hints)2843. lr=86a2e900, lr->processed=1
+<0>[  792.082048] =MHX(reg_process_pending_hints)2850. 
+<0>[  792.082053] =MHX(reg_process_pending_hints)2863. 
+<0>[  792.082060] =MHX(reg_process_hint)2773. initiator=1
+<0>[  792.082068] =MHX(reg_process_hint)2796. treatment=1
+<0>[  792.422157] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+<0>[  792.422176] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=6
+<0>[  792.422183] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+<0>[  792.435158] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+<0>[  792.435177] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=6
+<0>[  792.435185] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+<0>[  792.435303] ==MHX(ieee80211_hw_conf_chan)147. max reg power=20, local->user_power_level=20
+<0>[  792.435311] ==MHX(ieee80211_hw_conf_chan)162. chan->max_reg_power=33, local->user_antenna_gain=6
+<0>[  792.435318] ==MHX(ieee80211_hw_conf_chan)168. power=20,current user_power_level=20
+<6>[  792.435563] IPv6: ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+<6>[  792.435815] br-lan: port 2(wlan0) entered blocking state
+<6>[  792.435828] br-lan: port 2(wlan0) entered forwarding state
+
+
+
+
+Feb 2, 2023
+busy time measurement
+#!/bin/sh
+while true; do
+	a1=$(iw wlan0 survey dump | grep use -A 5 -B 1 | grep active | cut -f 4 | cut -f 1 -d ' ')
+	b1=$(iw wlan0 survey dump | grep use -A 5 -B 1 | grep busy | cut -f 4 | cut -f 1 -d ' ')
+	sleep 5
+	a2=$(iw wlan0 survey dump | grep use -A 5 -B 1 | grep active | cut -f 4 | cut -f 1 -d ' ')
+	b2=$(iw wlan0 survey dump | grep use -A 5 -B 1 | grep busy | cut -f 4 | cut -f 1 -d ' ')
+	active=$((a2-a1))
+	occ=$((b2-b1))
+	occ=$((occ*100/active))
+	echo "Occupation = $occ %"
+done
+
+Feb 2, 2023
+ath9k spectral scan in background mode:
+echo background > /sys/kernel/debug/ieee80211/phy0/ath9k/spectral_scan_ctl
+echo trigger > /sys/kernel/debug/ieee80211/phy0/ath9k/spectral_scan_ctl
+sleep 6
+echo disable > /sys/kernel/debug/ieee80211/phy0/ath9k/spectral_scan_ctl
+cat /sys/kernel/debug/ieee80211/phy0/ath9k/spectral_scan0 > samples-regular-tx
+
+
+Jan 26, 2023
+About "iw phy0 set antenna_gain 11". The only place to use this is in ieee80211_hw_conf_chan():
+	max_power = chandef.chan->max_reg_power;
+	printk("==MHX(%s)%d. chan->max_reg_power=%d, local->user_antenna_gain=%d\n", __func__, __LINE__, max_power, local->user_antenna_gain);
+	if (local->user_antenna_gain > 0) {
+		max_power -= local->user_antenna_gain;
+		power = min(power, max_power);
+	}
+This is used to reduce the channel's max_reg_power. But for DDL product, we hardcode the power instead of following the wireless regulatory database:
+        chan->max_power = pstepOneMhzCtl->maxeirp;      /* bypass chan->max_reg_power restriction */
++#if defined CONFIG_MHX_CE_MODE_SUPPORT
++       chan->max_reg_power = pstepOneMhzCtl->maxeirp;
++#endif
+
+So this cap doesn't really work because chan->max_reg_power is always 33dBm. Ideally this value should come from regulatory domain db. In that case, the user_antenna_gain will work.
+
+But for pMDDL1624 CE mode only works in band5(2.4GHz), all other 5 bands should follow fixed 33dBm. So we can not follow the ideal procedure. Jusr apply this user_antenna_gain in the target power table.
+
+///////////TX99, TX100 mode in ART
+//
+// use regular data trasnmsission mode. packets, interframe spacing, contention window, etc.
+// use DeviceTransmitEnable(void) to start. use DeviceTransmitDisable(void) to stop.
+//
+extern DEVICEDLLSPEC int DeviceTransmitRegularData(void);	// Normal, ifs=-1, Ar9300TransmitRegularData
+
+//
+// use tx99 mode. packets, fixed interframe spacing, no contention window, 
+// use DeviceTransmitEnable(void) to start. use DeviceTransmitDisable(void) to stop.
+//	
+extern DEVICEDLLSPEC int DeviceTransmitFrameData(int ifs);	// TX99 mode, ifs > 0; Ar9300TransmitFrameData
+
+//
+// use continuous data mode, one continuous data stream, no interframe spacing, no contention window, just data
+// use DeviceTransmitEnable(void) to start. use DeviceReset(void) to stop.
+//
+extern DEVICEDLLSPEC int DeviceTransmitContinuousData(void);	// TX100 mode, ifs=0, Ar9300TransmitContinuousData
+
+Use a ART unit transmitting in TX100 mode can cause a AP-STA pair noise flooring reading rising. Regulat TX and TX99 TX didn't raise the NF reading. Looks like any gap of InterFrameSpace will cause noise floor reading to its very low value (the native thermal noise). Use a sig-gen, if the gap in time-domain is >16uS, the AP-STA pair can NOT read a high noise floor reading. NF reading is the MINIMUM cyc power.
+
+Jan 25, 2023
+Where to find bw information:
+1. 
+struct ath_common {
+	void *ah;
+	void *priv;
+	struct ieee80211_hw *hw;
+	int debug_mask;
+	enum ath_device_state state;
+	unsigned long op_flags;
+	u32 chan_bw;	// this is exposed to /sys/kernel/debug/ieee80211/phy0/ath9k/chanbw. Main entrance to change bandwidth.
+
+2. 
+struct ath9k_channel {
+	struct ieee80211_channel *chan;
+	u16 channel;
+	u16 channelFlags;	
+	s16 noisefloor;
+};
+
+The channelFlags can be:
+#define CHANNEL_5GHZ		BIT(0)
+#define CHANNEL_HALF		BIT(1)
+#define CHANNEL_QUARTER		BIT(2)
+#define CHANNEL_HT		BIT(3)
+#define CHANNEL_HT40PLUS	BIT(4)
+#define CHANNEL_HT40MINUS	BIT(5)
+
+#ifdef CONFIG_STEP_ONEMHZ
+#define CHANNEL_PHY_HALF        BIT(6)
+#define CHANNEL_PHY_QUARTER     BIT(7)
+#endif
+
+For BW=1MHz : flags |= CHANNEL_QUARTER | CHANNEL_PHY_QUARTER;
+For BW=2MHz : flags |= CHANNEL_QUARTER | CHANNEL_PHY_HALF;
+
+3. Newly added today:
+struct cfg80211_chan_def {
+	struct ieee80211_channel *chan;
+	enum nl80211_chan_width width;
+	u32 center_freq1;
+	u32 center_freq2;
+	struct ieee80211_edmg edmg;
+};
+
+enum nl80211_chan_width {
+	NL80211_CHAN_WIDTH_20_NOHT,
+	NL80211_CHAN_WIDTH_20,
+	NL80211_CHAN_WIDTH_40,
+	NL80211_CHAN_WIDTH_80,
+	NL80211_CHAN_WIDTH_80P80,
+	NL80211_CHAN_WIDTH_160,
+	NL80211_CHAN_WIDTH_5,
+	NL80211_CHAN_WIDTH_10,
+#ifdef CONFIG_STEP_ONEMHZ
+	NL80211_CHAN_WIDTH_2,   /* 2.5 MHz */
+	NL80211_CHAN_WIDTH_1,   /* 1.25 MHz*/
+#endif /* CONFIG_STEP_ONEMHZ */
+};
+
+/////////////////////////////////////////////////////
+
+Found an issue about NL80211_ATTR_WIPHY_ANTENNA_GAIN
+1. In iw package nl80211.h, NL80211_ATTR_WIPHY_ANTENNA_GAIN=298
+2. In iwinfo package, NL80211_ATTR_WIPHY_ANTENNA_GAIN is not defined at all
+3. In mac80211 package, include/uapi/linux/nl80211.h defines NL80211_ATTR_WIPHY_ANTENNA_GAIN=289.
+
+That's why "iw phy phy0 set antenna_gain 12" can not function.
+
+Jan 23, 2023
+About the region domain setting in pMDDL BetaD.
+int set_regdom(const struct ieee80211_regdomain *rd,
+               enum ieee80211_regd_source regd_src)
+{
+        struct regulatory_request *lr;
+        bool user_reset = false;
+        int r;
+
+#if defined (CONFIG_STEP_ONEMHZ) && !defined (CONFIG_MHX_CE_MODE_SUPPORT)
+        return 0;       /* bypass regulatory domain setup */
+#endif
+
+To make "iw reg set FR" works, don't return 0 here. A regdom should be initialized.
+root@UserDevice:~# iw reg set FR
+<0>[  333.534692] =MHX(reg_process_pending_hints)2837. lr=86a79000, lr->processed=1
+<0>[  333.534706] =MHX(reg_process_pending_hints)2844. 
+<0>[  333.534712] =MHX(reg_process_pending_hints)2857. 
+<0>[  333.534718] =MHX(reg_process_hint)2767. initiator=1
+<0>[  333.534753] =MHX(reg_process_hint)2790. treatment=0
+<6>[  333.534846] handle_channel: chan->flags=48, , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  333.534853] handle_channel: chan->flags=48, , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  333.534859] handle_channel: chan->flags=48, , chan->max_antenna_gain=10, chan->max_power=33
+
+.....
+
+<6>[  333.540880] handle_channel: chan->flags=48, , chan->max_antenna_gain=10, chan->max_power=33
+<6>[  333.540886] handle_channel: chan->flags=48, , chan->max_antenna_gain=10, chan->max_power=33
+<0>[  333.541201] ==MHX(ath_reg_notifier_apply)543.request->dfs_region=2, request->initiator=1.
+<0>[  333.541209] ==MHX(ath_reg_notifier_apply)552.request->dfs_region=2, request->initiator=1.
+<0>[  333.541216] ==MHX(ath_reg_notifier_apply)570.request->dfs_region=2, request->initiator=1.
+<0>[  333.541223] ==MHX(__ath_reg_dyn_country)499. request->initiator=1.
+<0>[  333.541229] ==MHX(__ath_reg_dyn_country)505. request->initiator=1.
+<0>[  333.541241] ==MHX(__ath_reg_dyn_country)510. request->initiator=1.
+<7>[  333.541247] ath: EEPROM regdomain: 0x80fa
+<7>[  333.541251] ath: EEPROM indicates we should expect a country code
+<7>[  333.541256] ath: doing EEPROM country->regdmn map search
+<7>[  333.541262] ath: country maps to regdmn code: 0x37
+<7>[  333.541269] ath: Country alpha2 being used: FR
+<7>[  333.541273] ath: Regpair used: 0x37
+<7>[  333.541279] ath: regdomain 0x80fa dynamically updated by user
+
+The "FR" is stored in struct ieee80211_regdomain *regdom->alpha2. 
+
+
+Jan 20, 2023
+enum ieee80211_regulatory_flags {
+	REGULATORY_CUSTOM_REG			= BIT(0),
+	REGULATORY_STRICT_REG			= BIT(1),
+	REGULATORY_DISABLE_BEACON_HINTS		= BIT(2),
+	REGULATORY_COUNTRY_IE_FOLLOW_POWER	= BIT(3),
+	REGULATORY_COUNTRY_IE_IGNORE		= BIT(4),
+	REGULATORY_ENABLE_RELAX_NO_IR           = BIT(5),
+	REGULATORY_IGNORE_STALE_KICKOFF         = BIT(6),
+	REGULATORY_WIPHY_SELF_MANAGED		= BIT(7),
+};
+
+
+Jan 19, 2023
+https://wiki.dd-wrt.com/wiki/index.php/Atheros/ath_wireless_settings:
+Regulatory Domain
+Available Settings: 115+ different countries (several countries share the same regulations)
+
+Default Setting: Germany
+
+
+This determines the channels available in the list for both bands (if you have a dual band router) and the maximum EIRP "legally" allowed by the telecom authorities in the chosen country. EIRP is TX power plus antenna gain, example:
+
+20 dBm TX power with a 10 dBi gain antenna has an EIRP of 30 dBm.
+24 dBm TX power with a 6 dBi gain antenna has an EIRP of 30 dBm.
+
+Maximum EIRP varies by nation and your max TX power will be capped by the regulatory domain if you have a powerful radio. For example, Canada's max allowed EIRP is 36 dBm while its max allowed TX power is 30 dBm, with Canada selected and antenna gain at 0 dBi, the radios will never go above 30 dBm assuming they are capable of reaching that of course.
+
+
+iw reg set DE --->NL80211_CMD_REQ_SET_REG, NL80211_ATTR_REG_ALPHA2 ---> nl80211_req_set_reg() ---> regulatory_hint_user() ---> queue_regulatory_request() ---> reg_todo() ---1---> reg_process_pending_hints()
+---2---> reg_process_pending_beacon_hints()
+---3---> reg_process_self_managed_hints() ---> nl80211_send_wiphy_reg_change_event() --->nl80211_common_reg_change_event() ---> 
+
+What is the relationship between country_code and alpha2? 
+country_code = ath_regd_find_country_by_name(request->alpha2);
+
+struct ath_common *common-> struct ath_regulatory regulatory(alpha2 is stored here)
+
+Jan 18, 2023
+ * @NL80211_ATTR_REG_ALPHA2: an ISO-3166-alpha2 country code for which the
+ * 	current regulatory domain should be set to or is already set to.
+ * 	For example, 'CR', for Costa Rica. This attribute is used by the kernel
+ * 	to query the CRDA to retrieve one regulatory domain. This attribute can
+ * 	also be used by userspace to query the kernel for the currently set
+ * 	regulatory domain. We chose an alpha2 as that is also used by the
+ * 	IEEE-802.11 country information element to identify a country.
+ * 	Users can also simply ask the wireless core to set regulatory domain
+ * 	to a specific alpha2.
+ * @NL80211_ATTR_REG_RULES: a nested array of regulatory domain regulatory
+ *	rules.
+
+/**
+ * enum nl80211_initiator - Indicates the initiator of a reg domain request
+ * @NL80211_REGDOM_SET_BY_CORE: Core queried CRDA for a dynamic world
+ * 	regulatory domain.
+ * @NL80211_REGDOM_SET_BY_USER: User asked the wireless core to set the
+ * 	regulatory domain.
+ * @NL80211_REGDOM_SET_BY_DRIVER: a wireless drivers has hinted to the
+ * 	wireless core it thinks its knows the regulatory domain we should be in.
+ * @NL80211_REGDOM_SET_BY_COUNTRY_IE: the wireless core has received an
+ * 	802.11 country information element with regulatory information it
+ * 	thinks we should consider. cfg80211 only processes the country
+ *	code from the IE, and relies on the regulatory domain information
+ *	structure passed by userspace (CRDA) from our wireless-regdb.
+ *	If a channel is enabled but the country code indicates it should
+ *	be disabled we disable the channel and re-enable it upon disassociation.
+ */
+enum nl80211_reg_initiator {
+	NL80211_REGDOM_SET_BY_CORE,
+	NL80211_REGDOM_SET_BY_USER,
+	NL80211_REGDOM_SET_BY_DRIVER,
+	NL80211_REGDOM_SET_BY_COUNTRY_IE,
+};
+
+/**
+ * enum nl80211_dfs_regions - regulatory DFS regions
+ *
+ * @NL80211_DFS_UNSET: Country has no DFS master region specified
+ * @NL80211_DFS_FCC: Country follows DFS master rules from FCC
+ * @NL80211_DFS_ETSI: Country follows DFS master rules from ETSI
+ * @NL80211_DFS_JP: Country follows DFS master rules from JP/MKK/Telec
+ */
+enum nl80211_dfs_regions {
+	NL80211_DFS_UNSET	= 0,
+	NL80211_DFS_FCC		= 1,
+	NL80211_DFS_ETSI	= 2,
+	NL80211_DFS_JP		= 3,
+};
+
+// This regdomain structure must match the CRDA regulation : crda.git and wireless-regdb.git
+
+struct ieee80211_regdomain {
+	struct rcu_head rcu_head;
+	u32 n_reg_rules;
+	char alpha2[3];
+	enum nl80211_dfs_regions dfs_region;
+	struct ieee80211_reg_rule reg_rules[];
+};
+
+
+struct ieee80211_reg_rule {
+	struct ieee80211_freq_range freq_range;
+	struct ieee80211_power_rule power_rule;
+	struct ieee80211_wmm_rule wmm_rule;
+	u32 flags;
+	u32 dfs_cac_ms;
+	bool has_wmm;
+};
+
+struct ieee80211_freq_range {
+	u32 start_freq_khz;
+	u32 end_freq_khz;
+	u32 max_bandwidth_khz;
+};
+
+struct ieee80211_power_rule {
+	u32 max_antenna_gain;
+	u32 max_eirp;
+};
+
+struct ieee80211_wmm_rule {
+	struct ieee80211_wmm_ac client[IEEE80211_NUM_ACS];
+	struct ieee80211_wmm_ac ap[IEEE80211_NUM_ACS];
+};
+
+
+struct ieee80211_wmm_ac {
+	u16 cw_min;
+	u16 cw_max;
+	u16 cot;
+	u8 aifsn;
+};
+
+
+Jan 13, 2023
+ART set cal data.
+set 2GHz.TransmitCalibration.Voltage=-1,-1,-1,-1,-2,-2,-2,-2,-2,-1,-1,-1,2,2,2,1,2,1,1,2,2,1,1,0,0,0,0,0,0,0,0,0,-2,-1,-2,-2,-2,-2,-2,-2,-1,-1,0,-1,1,1,1,2,3,2,1,1,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+set 2GHz.TransmitCalibration.PowerCorrection=-1,-1,-1,-1,-2,-2,-2,-2,-2,-1,-1,-1,2,2,2,1,2,1,1,2,2,1,1,0,0,0,0,0,0,0,0,0,-2,-1,-2,-2,-2,-2,-2,-2,-1,-1,0,-1,1,1,1,2,3,2,1,1,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+Jan 11, 2023
+BetaD pMDDL1621, MAC=0x00:0F:92:FC:4F:B5, in ART, check the interplation algorithm (tx power correction):
+< 7510 INFO  |=================2G Power Calibration Information =====================|
+< 7510 INFO  |                                                                       |
+< 7510 INFO  |                   Chain 0                          Chain 1            |
+< 7510 INFO  |-----------------------------------------------------------------------|
+< 7510 INFO  |                     rxNF rxNF rx  |                   rxNF rxNF   rx  |
+< 7510 INFO  | Freq  Pwr Volt Temp  Cal pwr Temp |     Pwr Volt Temp  Cal  pwr  Temp |
+< 7510 INFO  |-----------------------------------------------------------------------|
+< 7510 INFO  | 1625   29   0  190  -052  -52 128 |      37   0  177  -060  -48  128  |
+< 7510 INFO  | 1675   27   0  187  -064  -60 128 |      33   0  176  -064  -56  128  |
+< 7510 INFO  | 1700   25   0  189  -064  -52 128 |      33   0  177  -064  -60  128  |
+< 7510 INFO  | 1725   20   0  188  -068  -52 128 |      27   0  176  -072  -56  128  |
+< 7510 INFO  | 1780   32   0  189  -060  -52 128 |      38   0  175  -064  -56  128  |
+< 7510 INFO  | 1815   33   0  187  -060  -56 128 |      36   0  176  -068  -60  128  |
+< 7510 INFO  | 1825   36   0  188  -064  -56 128 |      37   0  176  -068  -60  128  |
+< 7510 INFO  | 1850   31   0  188  -072  -52 128 |      31   0  176  -076  -52  128  |
+< 7510 INFO  | 2020   24   0  188  -072  -52 128 |      24   0  176  -080  -44  128  |
+< 7510 INFO  | 2040   27   0  186  -068  -56 128 |      30   0  175  -068  -56  128  |
+< 7510 INFO  | 2055   27   0  189  -068  -60 128 |      32   0  175  -064  -60  128  |
+< 7510 INFO  | 2080   27   0  187  -064  -64 128 |      33   0  175  -064  -52  128  |
+< 7510 INFO  | 2110   14   0  188  -084  -56 128 |      22   0  177  -080  -52  128  |
+< 7510 INFO  | 2200   16   0  188  -076  -60 128 |      24   0  175  -080  -44  128  |
+< 7510 INFO  | 2250   18   0  188  -068  -64 128 |      25   0  176  -072  -48  128  |
+< 7510 INFO  | 2275   18   0  188  -072  -60 128 |      23   0  175  -080  -36  128  |
+< 7510 INFO  | 2300    7   0  187  -084  -56 128 |      15   0  175  -084  -36  128  |
+
+In ar9300_calibration_apply() function, print the interplated correction value:
+   printf("==MHX(%s): for frequency=%d, calibration correction = %d %d %d\n",  __func__, frequency, correction[0], correction[1], correction[2]);
+
+This is the test result:
+-------------------Band1 [1625..1725]-----------------------------------
+Freq		correction[0]		Is Cal Point?
+1625		29				Y
+1650		28				N
+1675		27				Y
+1688		26				N
+1700		25				Y
+1713		22				N
+1725		20				Y
+-------------------Band2 [1780..1850]-----------------------------------
+1780		32				Y
+1797		32				N
+1815		33				Y
+1820		35				N
+1825		36				Y
+1838		33				N
+1850		31				Y
+1935		27				N
+-------------------Band3 [2000..2100]-----------------------------------
+2000		25				N
+2010		24				N
+2020		24				Y
+2030		26				N
+2040		27				Y
+2047		27				N
+2055		27				Y
+2067		27				N
+2080		27				Y
+2095		20				N
+2110		14				Y
+-------------------Band4 [2200..2300]-----------------------------------
+2200		16				Y
+2225		17				N
+2250		18				Y
+2262		18				N
+2275		18				Y
+2287		13				N
+2300		7				Y
+
+
+
+Jan 6, 2023
+rtl8812au-mhx: should use BigEndian on BetaD platform (MIPS):
+-CONFIG_PLATFORM_I386_PC = y
++CONFIG_PLATFORM_I386_PC = n
+...
+-CONFIG_PLATFORM_MIPS_AR9132 = n
++CONFIG_PLATFORM_MIPS_AR9132 = y
+
+Config file must have this:
+wireless.radio0.hw11ac_mode='1'
+
+88XXau.ko does NOT need mac80211.ko but has dependency on cfg80211.ko. So this rtl8812au device is a full mac device an doesn't need our soft MAC code.
+
+Jan 5, 2023
+For OWT packages ( not kernel ) : M just compiles it and creates the .ipk package (to be installed woth opkg), while "*" includes the compiled package in the firmware.
+
+This Makefile will download from Github directly and compile. This is a normal OpenWRT package behavior:
+
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=rtl8812au
+PKG_RELEASE=1
+##### PKG_VERSION:=5.6.4.2
+
+PKG_LICENSE:=GPLv2
+PKG_LICENSE_FILES:=
+
+##### PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tgz		// this is only used for local stored tarball source code. Not the remote repo/archive name.
+PKG_SOURCE_URL:=https://github.com/aircrack-ng/rtl8812au.git
+PKG_MIRROR_HASH:=skip		// can skip 
+PKG_SOURCE_VERSION:=v5.6.4.2	// this is the branch name of this git repo.
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_DATE:=2023-01-04	// the building dir is : build_dir/target-mips_24kc_musl/linux-ar71xx_microhard/rtl8812au-2023-01-04-v5.6.4.2/
+
+PKG_MAINTAINER:=aircrack-ng
+PKG_BUILD_PARALLEL:=1
+#PKG_EXTMOD_SUBDIRS:=rtl8812au-mhx
+
+STAMP_CONFIGURED_DEPENDS := $(STAGING_DIR)/usr/include/mac80211-backport/backport/autoconf.h
+
+include $(INCLUDE_DIR)/kernel.mk
+include $(INCLUDE_DIR)/package.mk
+
+define KernelPackage/rtl8812au-mhx
+  SUBMENU:=Wireless Drivers
+  TITLE:=Driver for Realtek 8812 AU devices comfast 912-ac, tp-link AC600 etc
+  DEPENDS:=+kmod-cfg80211 +kmod-usb-core +@DRIVER_11N_SUPPORT +@DRIVER_11AC_SUPPORT
+  FILES:=\
+        $(PKG_BUILD_DIR)/88XXau.ko
+  AUTOLOAD:=$(call AutoProbe,88XXau)
+  PROVIDES:=kmod-rtl8812au-mhx
+endef
+
+NOSTDINC_FLAGS = \
+        -I$(PKG_BUILD_DIR) \
+        -I$(PKG_BUILD_DIR)/include \
+        -I$(STAGING_DIR)/usr/include/mac80211-backport \
+        -I$(STAGING_DIR)/usr/include/mac80211-backport/uapi \
+        -I$(STAGING_DIR)/usr/include/mac80211 \
+        -I$(STAGING_DIR)/usr/include/mac80211/uapi \
+        -include backport/backport.h
+
+NOSTDINC_FLAGS+=-DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT -DBUILD_OPENWRT -D_LINUX_BYTEORDER_SWAB_H
+
+#MHXJL 
+KERNEL_MAKE_FLAGS += CONFIG_88XXAU=m
+
+define Build/Compile
+        +$(MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
+                $(KERNEL_MAKE_FLAGS) \
+                M="$(PKG_BUILD_DIR)" \
+                NOSTDINC_FLAGS="$(NOSTDINC_FLAGS)" \
+                modules
+endef
+
+$(eval $(call KernelPackage,rtl8812au-mhx))
+
+
+When the PKG_MIRROR_HASH-skip and run 
+jli@DENG-JEFFL:~/project/work/g35/k414-fcc$ make package/kernel/rtl8812au-mhx/check V=99
+make[1]: Entering directory '/home/jli/project/work/g35/k414-fcc'
+make[2]: Entering directory '/home/jli/project/work/g35/k414-fcc/package/kernel/rtl8812au-mhx'
+WARNING: PKG_MIRROR_HASH uses deprecated hash, set to 354cd9d1c36cc4263e0933561bfb086f868496ed4ce328f76bfc14286d600701
+
+Go back to Makefile and set 
+PKG_MIRROR_HASH:=354cd9d1c36cc4263e0933561bfb086f868496ed4ce328f76bfc14286d600701
+
+
+Jan 4, 2023
+TP-Link AC600 uses rtl8812au-ct driver in BetaD pX2. Remove ath.ko so that qca9531 WMAC is no up and running. loaded cfg80211, mac80211 and rtl8812au.ko, iw command can not create wlan0 interface return 237 code.
+
+Use the latest OpenWRT rtl8812au-ct package (2021, which is 1yr later than the Microhard repo). iw still fails return 233 wlan0 still not up and running.
+
+Copied the ftl8812ae_fw.bin didn't help.
+
+In Ubnt 18.04 PC, TP-Link AC600 works fine ( as STA mode) with these steps:
+sudo apt install git dkms
+git clone https://github.com/aircrack-ng/rtl8812au.git
+cd rtl8812au
+sudo make dkms_install
+
+This is a working OpenWRT package Makefile for this code base :
+
+[NOTE:] This way, I need to download the rtl8812au-5.6.4.2.zip file from https://github.com/aircrack-ng/rtl8812au Then unpack it to a dir, change name to rtl8812au-mhx-2023-01-04, and then tarball it to rtl8812au-mhx-2023-01-04.tgz. Then place this tarbal to the dl dir. Then use this Makefile to make with this local tarball file.
+
+jli@DENG-JEFFL:~/project/work/g35/k414-fcc$ ll ~/software/driver/
+total 111616
+drwxrwxr-x  3 jli jli      4096 Jan  4 17:58 ./
+drwxr-xr-x  4 jli jli      4096 Jan  4 16:46 ../
+drwxrwxr-x 12 jli jli      4096 Jan  4 16:48 rtl8812au-mhx-2023-01-04/
+-rw-rw-r--  1 jli jli 114275342 Jan  4 17:58 rtl8812au-mhx-2023-01-04.tgz
+jli@DENG-JEFFL:~/project/work/g35/k414-fcc$ 
+jli@DENG-JEFFL:~/project/work/g35/k414-fcc$ ll dl/rtl8812au-mhx-2023-01-04.tgz 
+-rw-rw-r-- 1 jli jli 114275342 Jan  4 17:58 dl/rtl8812au-mhx-2023-01-04.tgz
+jli@DENG-JEFFL:~/project/work/g35/k414-fcc$ vi package/kernel/rtl8812au-mhx/Makefile
+
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=rtl8812au-mhx
+PKG_RELEASE=1
+PKG_VERSION:=2023-01-04
+
+PKG_LICENSE:=GPLv2
+PKG_LICENSE_FILES:=
+
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tgz
+PKG_SOURCE_URL:=https://github.com/aircrack-ng/rtl8812au.git
+### PKG_MIRROR_HASH:=fa689e034cad9e4683ea784b8f3cb590492ab5c68e8babd492a4e8bf2de3b114
+### PKG_SOURCE_PROTO:=git
+PKG_SOURCE_DATE:=2023-01-04
+
+PKG_MAINTAINER:=aircrack-ng
+PKG_BUILD_PARALLEL:=1
+#PKG_EXTMOD_SUBDIRS:=rtl8812au-mhx
+
+STAMP_CONFIGURED_DEPENDS := $(STAGING_DIR)/usr/include/mac80211-backport/backport/autoconf.h
+
+include $(INCLUDE_DIR)/kernel.mk
+include $(INCLUDE_DIR)/package.mk
+
+define KernelPackage/rtl8812au-mhx
+  SUBMENU:=Wireless Drivers
+  TITLE:=Driver for Realtek 8812 AU devices comfast 912-ac, tp-link AC600 etc
+  DEPENDS:=+kmod-cfg80211 +kmod-usb-core +@DRIVER_11N_SUPPORT +@DRIVER_11AC_SUPPORT
+  FILES:=\
+        $(PKG_BUILD_DIR)/88XXau.ko
+  AUTOLOAD:=$(call AutoProbe,88XXau)
+  PROVIDES:=kmod-rtl8812au-mhx
+endef
+
+NOSTDINC_FLAGS = \
+        -I$(PKG_BUILD_DIR) \
+        -I$(PKG_BUILD_DIR)/include \
+        -I$(STAGING_DIR)/usr/include/mac80211-backport \
+        -I$(STAGING_DIR)/usr/include/mac80211-backport/uapi \
+        -I$(STAGING_DIR)/usr/include/mac80211 \
+        -I$(STAGING_DIR)/usr/include/mac80211/uapi \
+        -include backport/backport.h
+
+NOSTDINC_FLAGS+=-DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT -DBUILD_OPENWRT -D_LINUX_BYTEORDER_SWAB_H
+
+#MHXJL 
+KERNEL_MAKE_FLAGS += CONFIG_88XXAU=m
+
+define Build/Compile
+        +$(MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
+                $(KERNEL_MAKE_FLAGS) \
+                M="$(PKG_BUILD_DIR)" \
+                NOSTDINC_FLAGS="$(NOSTDINC_FLAGS)" \
+                modules
+endef
+
+$(eval $(call KernelPackage,rtl8812au-mhx))
+
+[NOTE: need add KERNEL_MAKE_FLAGS += CONFIG_88XXAU=m and -D_LINUX_BYTEORDER_SWAB_H]
+
+Dec 19, 2022
+The Japan code issue in non-secure Mesh mode root cause is:
+static void ieee80211_mesh_rx_bcn_presp():
+#ifdef CONFIG_MHX_PMDDL2450JP
+	/* we ignore the IE channel information to talk with G3.5 units whichi have different channel definition. */
+	freq = rx_status->freq;
+#else
+	if (elems.ds_params)
+		freq = ieee80211_channel_to_frequency(elems.ds_params[0], band);
+	else
+		freq = rx_status->freq;
+#endif
+
+But why Japan secure mesh works fine??? [NOTE: secure mesh mode does NOT work perfectly. When the beacon_int=100 on a G3.5 unit, the connection with G4 is abnormal.]
+
+This is a normal log on G4, non-secure Mesh mode:
+
+<6>[   29.740000] br-lan: port 2(wlan0) entered forwarding state
+<6>[   29.900000] br-lan: port 1(eth0) entered forwarding state
+<6>[   30.160000] serial8250_ioctl: IO configured: iRE=23 485=26 HD=27 DE=19
+<6>[   30.160000] serial8250_ioctl getmode: 0
+<6>[   30.170000] serial8250_ioctl setmode: 0
+<6>[   30.190000] serial8250_ioctl getmode: 0
+<6>[   31.740000] br-lan: port 2(wlan0) entered forwarding state
+<0>[   52.170000] ==MHX(mesh_matches_local)145
+<0>[   52.170000] ==MHX(mesh_matches_local)165
+<0>[   52.170000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.170000] ==MHX(mesh_matches_local)179
+<0>[   52.170000] ==MHX(mesh_sta_info_get)505. sta=  (null), addr=00:0f:92:fc:bf:cb.
+<7>[   52.170000] wlan0: Allocated STA 00:0f:92:fc:bf:cb
+<7>[   52.170000] wlan0: moving STA 00:0f:92:fc:bf:cb to state 2
+<7>[   52.170000] wlan0: moving STA 00:0f:92:fc:bf:cb to state 3
+<7>[   52.170000] wlan0: moving STA 00:0f:92:fc:bf:cb to state 4
+<7>[   52.170000] wlan0: Inserted STA 00:0f:92:fc:bf:cb
+<0>[   52.170000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   52.170000] ==MHX(rssi_threshold_check)76. sta=829db000, -ewma_read(&sta->avg_signal=0
+<7>[   52.170000] wlan0: Mesh plink: starting establishment with 00:0f:92:fc:bf:cb
+<0>[   52.180000] ==MHX(mesh_process_plink_frame)1063. sta=829db000, mgmt->sa=00:0f:92:fc:bf:cb. ftype=1, event=0
+<0>[   52.180000] ==MHX(rssi_threshold_check)76. sta=829db000, -ewma_read(&sta->avg_signal=-48
+<0>[   52.180000] ==MHX(mesh_matches_local)145
+<0>[   52.180000] ==MHX(mesh_matches_local)165
+<0>[   52.180000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.180000] ==MHX(mesh_matches_local)179
+<0>[   52.180000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<7>[   52.180000] wlan0: peer 00:0f:92:fc:bf:cb in state OPN-SNT got event OPN_ACPT
+<0>[   52.180000] ==MHX(mesh_process_plink_frame)1063. sta=829db000, mgmt->sa=00:0f:92:fc:bf:cb. ftype=2, event=0
+<0>[   52.180000] ==MHX(mesh_matches_local)145
+<0>[   52.180000] ==MHX(mesh_matches_local)165
+<0>[   52.180000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.180000] ==MHX(mesh_matches_local)179
+<7>[   52.180000] wlan0: peer 00:0f:92:fc:bf:cb in state OPN-RCVD got event CNF_ACPT
+<7>[   52.180000] wlan0: HT20 sta (00:0f:92:fc:bf:cb) is present
+<7>[   52.180000] wlan0: selected new HT protection mode 0
+<7>[   52.180000] wlan0: Mesh plink with 00:0f:92:fc:bf:cb ESTABLISHED
+<0>[   52.280000] ==MHX(mesh_matches_local)145
+<0>[   52.280000] ==MHX(mesh_matches_local)165
+<0>[   52.280000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.280000] ==MHX(mesh_matches_local)179
+<0>[   52.280000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   52.280000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   52.380000] ==MHX(mesh_matches_local)145
+<0>[   52.380000] ==MHX(mesh_matches_local)165
+<0>[   52.380000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.380000] ==MHX(mesh_matches_local)179
+<0>[   52.380000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   52.380000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   52.480000] ==MHX(mesh_matches_local)145
+<0>[   52.480000] ==MHX(mesh_matches_local)165
+<0>[   52.480000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.480000] ==MHX(mesh_matches_local)179
+<0>[   52.480000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   52.480000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   52.580000] ==MHX(mesh_matches_local)145
+<0>[   52.580000] ==MHX(mesh_matches_local)165
+<0>[   52.580000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.580000] ==MHX(mesh_matches_local)179
+<0>[   52.580000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   52.580000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   52.690000] ==MHX(mesh_matches_local)145
+<0>[   52.690000] ==MHX(mesh_matches_local)165
+<0>[   52.690000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   52.690000] ==MHX(mesh_matches_local)179
+<0>[   52.690000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+
+......
+
+<0>[   53.610000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   53.610000] ==MHX(mesh_matches_local)179
+<0>[   53.610000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   53.610000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   53.710000] ==MHX(mesh_matches_local)145
+<0>[   53.710000] ==MHX(mesh_matches_local)165
+<0>[   53.710000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   53.710000] ==MHX(mesh_matches_local)179
+<0>[   53.710000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   53.710000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   53.810000] ==MHX(mesh_matches_local)145
+<0>[   53.810000] ==MHX(mesh_matches_local)165
+<0>[   53.810000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   53.810000] ==MHX(mesh_matches_local)179
+<0>[   53.810000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   53.810000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<7>[   53.900000] wlan0: sending PREQ to 00:0f:92:fc:bf:cb
+<7>[   53.900000] wlan0: received PREP from 00:0f:92:fc:bf:cb
+<0>[   53.920000] ==MHX(mesh_matches_local)145
+<0>[   53.920000] ==MHX(mesh_matches_local)165
+<0>[   53.920000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   53.920000] ==MHX(mesh_matches_local)179
+<0>[   53.920000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   53.920000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.020000] ==MHX(mesh_matches_local)145
+<0>[   54.020000] ==MHX(mesh_matches_local)165
+<0>[   54.020000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.020000] ==MHX(mesh_matches_local)179
+<0>[   54.020000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.020000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.120000] ==MHX(mesh_matches_local)145
+<0>[   54.120000] ==MHX(mesh_matches_local)165
+<0>[   54.120000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.120000] ==MHX(mesh_matches_local)179
+<0>[   54.120000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.120000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.220000] ==MHX(mesh_matches_local)145
+<0>[   54.220000] ==MHX(mesh_matches_local)165
+<0>[   54.220000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.220000] ==MHX(mesh_matches_local)179
+<0>[   54.220000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.220000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.320000] ==MHX(mesh_matches_local)145
+<0>[   54.320000] ==MHX(mesh_matches_local)165
+<0>[   54.320000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.320000] ==MHX(mesh_matches_local)179
+<0>[   54.320000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.320000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.430000] ==MHX(mesh_matches_local)145
+<0>[   54.430000] ==MHX(mesh_matches_local)165
+<0>[   54.430000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.430000] ==MHX(mesh_matches_local)179
+<0>[   54.430000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.430000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.530000] ==MHX(mesh_matches_local)145
+<0>[   54.530000] ==MHX(mesh_matches_local)165
+<0>[   54.530000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.530000] ==MHX(mesh_matches_local)179
+<0>[   54.530000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.530000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.630000] ==MHX(mesh_matches_local)145
+<0>[   54.630000] ==MHX(mesh_matches_local)165
+<0>[   54.630000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.630000] ==MHX(mesh_matches_local)179
+<0>[   54.630000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.630000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.730000] ==MHX(mesh_matches_local)145
+<0>[   54.730000] ==MHX(mesh_matches_local)165
+<0>[   54.730000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.730000] ==MHX(mesh_matches_local)179
+<0>[   54.730000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.730000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<0>[   54.840000] ==MHX(mesh_matches_local)145
+<0>[   54.840000] ==MHX(mesh_matches_local)165
+<0>[   54.840000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.840000] ==MHX(mesh_matches_local)179
+<0>[   54.840000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+<0>[   54.840000] ==MHX(mesh_neighbour_update)544. sta=829db000, hw_addr=00:0f:92:fc:bf:cb.
+<7>[   54.900000] wlan0: received PREQ from 00:0f:92:fc:bf:cb
+<7>[   54.900000] wlan0: PREQ is for us
+<7>[   54.900000] wlan0: replying to the PREQ
+<7>[   54.900000] wlan0: sending PREP to 00:0f:92:fc:bf:cb
+<0>[   54.940000] ==MHX(mesh_matches_local)145
+<0>[   54.940000] ==MHX(mesh_matches_local)165
+<0>[   54.940000] ==MHX(mesh_matches_local)169. local basic_rates=00000000, b_rates=00000000
+<0>[   54.940000] ==MHX(mesh_matches_local)179
+<0>[   54.940000] ==MHX(mesh_sta_info_get)505. sta=829db000, addr=00:0f:92:fc:bf:cb.
+
+
+Dec 16, 2022
+JAPAN paroduct, Mesh, AES128 mode : G4 pMDDL2450JP and a G3.5 pMDDL2450JP. The G3.5 doesn't have default beacon_int set. So the G4 always kicks out the G3.5MP after mesh_plink_timeout = 5 seconds. After setting "uci set wireless.radio0.beacon_int=1000" in G3.5 it is all OK.
+
+When the beacon_int is not set, the Non-Encryption mesh doesn't even associate.
+
+If G3.5 set beacon_int=100, G4's beacon_int=100,  the connection between them has issues in AES128 mode. Looks like the MP G4--G3.5 compatible mode, G3.5 must NOT use beacon_int=100. Use 1000 instead.
+
+At the SAME TIME, G4 should set "uci set wireless.@wifi-iface[0].mesh_rssi_threshold=0". Otherwise the G4 JP will complain "does not meet rssi threshold" in non-encryption Mesh mode.
+
+So 2 changes on both sides.
+
+
+cfg80211_get_bss_channel() is not called in Mesh mode ( both secure and non-secure modes). 
+
+Dec 15, 2022
+2 BetaD MPs and 1 G4 MP. PC1 ----- MP1(G4) ~~~ MP2(G3.5) ~~~ MP3(G3.5) ----- PC2. PC1 ping PC2.
+
+When the mpath is individual to individual, the PING delay:
+
+163 packets transmitted, 163 received, 0% packet loss, time 162253ms
+rtt min/avg/max/mdev = 2.720/3.685/14.011/1.365 ms
+
+142 packets transmitted, 142 received, 0% packet loss, time 141230ms
+rtt min/avg/max/mdev = 2.483/3.693/12.655/1.154 ms
+
+Manually set the mpath on all 3 MPs. MP1 and MP3 don't have direct link, relayed by MP2 :
+
+197 packets transmitted, 196 received, 0% packet loss, time 196350ms
+rtt min/avg/max/mdev = 3.259/4.795/121.878/8.491 ms
+
+Can see the difference in PING latency.
+
+
+Dec 6, 2022
+In BetaD, the mpl connection to G4 fails at mis-matching:
+/* return true if elems from a neighbor match this MBSS */
+static bool matches_local(struct wpa_supplicant *wpa_s,
+			  struct ieee802_11_elems *elems)
+{
+	struct mesh_conf *mconf = wpa_s->ifmsh->mconf;
+
+
+//////////////////////////// return true;
+
+	if (elems->mesh_config_len < 5)
+		return false;
+
+	wpa_msg(wpa_s, MSG_ERROR, "Local: meshid_len=%d, mesh_pp_id=%d, pm_id=%d, cc_id=%d, sp_id=%d, auth_id=%d\n", mconf->meshid_len,mconf->mesh_pp_id,mconf->mesh_pm_id,mconf->mesh_cc_id,mconf->mesh_sp_id, mconf->mesh_auth_id);
+	wpa_msg(wpa_s, MSG_ERROR, "Peer: meshid_len=%d, mesh_pp_id=%d, pm_id=%d, cc_id=%d, sp_id=%d, auth_id=%d\n",elems->mesh_id_len, elems->mesh_config[0],elems->mesh_config[1],elems->mesh_config[2],elems->mesh_config[3],elems->mesh_config[4]);
+
+	return (mconf->meshid_len == elems->mesh_id_len &&
+		os_memcmp(mconf->meshid, elems->mesh_id,
+			  elems->mesh_id_len) == 0 &&
+		mconf->mesh_pp_id == elems->mesh_config[0] &&
+		mconf->mesh_pm_id == elems->mesh_config[1] &&
+		mconf->mesh_cc_id == elems->mesh_config[2] &&
+		mconf->mesh_sp_id == elems->mesh_config[3] &&pp
+		mconf->mesh_auth_id == elems->mesh_config[4]);
+}
+
+The BetaD log is:
+Mon Nov 21 20:42:46 2022 daemon.err wpa_supplicant[12589]: wlan0: Local: meshid_len=14, mesh_pp_id=1, pm_id=1, cc_id=0, sp_id=1, auth_id=1
+Mon Nov 21 20:42:46 2022 daemon.err wpa_supplicant[12589]: wlan0: Peer: meshid_len=14, mesh_pp_id=0, pm_id=0, cc_id=0, sp_id=0, auth_id=0
+
+Looks like the G4 mesh is not initialized properly. Must skip this check to be connect to G4 secure MP.
+
+
+Dec 5, 2022
+In G4 , it doesn't need to force all connectiong peers to be non-MPF
+In sta_apply_parameters():
+
+
+/* test if we can remove this????? Yes can remove. Still works with BetaD peers.
+
+        if (ieee80211_vif_is_mesh(&sdata->vif)){
+                printk("===MHX(%s)%d.. force ipeer to non-MFP!!!!\n", __func__, __LINE__);
+                //////////////////////sta->sta.mfp = 0;
+                clear_sta_flag(sta, WLAN_STA_MFP);
+        }
+*/
+
+
+Nov 30, 2022
+G4 has something wrong in GTK setting.
+1. When G4 can successfully decrypt MCAST/BCAST packets from BetaD:
+
+In G4
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/*/key*
+99521bac4a8b11d51daf11e94947dd78
+4
+16
+99521bac4a8b11d51daf11e94947dd78
+1
+16
+6da46ad1a5a394518aee5edc97c82967
+0
+16
+b07df7f791ad708e8bb1cc89f3ab58b6
+1
+16
+b07df7f791ad708e8bb1cc89f3ab58b6
+4
+16
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/*/pair*
+0
+0
+1
+0
+0
+
+In BetaD:
+
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/*/key*
+b07df7f791ad708e8bb1cc89f3ab58b6	// locally generated before peer association, why????
+1
+16
+6da46ad1a5a394518aee5edc97c82967
+0
+16
+99521bac4a8b11d51daf11e94947dd78
+1
+16
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/*/pair*
+0
+1
+0
+
+There are 1 matching PSK and 2 matching GTKs between G4 and G3.5
+
+2. When G4 can NOT successfully decrypt MCAST/BCAST packets from BetaD:
+
+G4 has installed 2 idential GTKs, which is wrong:
+
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/*/key*
+382374527827b9892e9ca26e53ba5964
+4
+16
+382374527827b9892e9ca26e53ba5964
+1
+16
+57d7b7b0d347901fc000eda07d8f7c80
+0
+16
+382374527827b9892e9ca26e53ba5964
+1
+16
+382374527827b9892e9ca26e53ba5964
+4
+16
+
+
+In G3.5 BetaD
+
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/*/key*
+1dbc350779cb603290df1c78f1293f90
+1
+16
+57d7b7b0d347901fc000eda07d8f7c80
+0
+16
+382374527827b9892e9ca26e53ba5964
+1
+16
+root@UserDevice:~# 
+root@UserDevice:~# 
+root@UserDevice:~# cat sys/kernel/debug/ieee80211/phy0/keys/*/pair*
+0
+1
+0
+
+/////////////
+
+The root cause is that MGTK only available in PLINK_OPEN(1) frame. When G4 authsae receives PLINK_CONFIRM(2), it should NOT use the MGTK data because it doesn't exist!!!! Use this code solves the GTK installation issue:
+
+    /* everything from here on out requires MGTKData */
+    sae_debug(AMPE_DEBUG_KEYS, "==MHX(%s)%d. ftype=%d\n", __func__, __LINE__, ftype);
+    if (ftype != PLINK_OPEN)
+        return true;
+
+    memcpy(cand->mgtk, ies_parsed.ampe->mgtk, sizeof(cand->mgtk));	// Don't do the MGTK copy if it is not PLINK_OPEN.
+
+
+
+
+Nov 29, 2022
+Log of 2 BetaD MPs. MP1(00:0F:92:FC:7B:0D), MP2(00:0f:92:fc:0d:f5). After a fresh reboot, ping from MP1 to MP2.
+
+1. MP1 (pinger) log:
+<0>[ 2231.023678] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2231.023782] wlan0: rssi_threshold=0,rx_status->signal=-49
+<7>[ 2231.023819] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911814, t_offset_setpoint=3519911810, t_clockdrift=-4
+<0>[ 2231.023835] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2231.023842] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2231.440591] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2232.047717] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2232.047826] wlan0: rssi_threshold=0,rx_status->signal=-50
+<7>[ 2232.047864] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911812, t_offset_setpoint=3519911810, t_clockdrift=-2
+<0>[ 2232.047880] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2232.047887] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2232.464598] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2233.071699] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2233.071801] wlan0: rssi_threshold=0,rx_status->signal=-50
+<7>[ 2233.071839] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911810, t_offset_setpoint=3519911810, t_clockdrift=0
+<0>[ 2233.071855] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2233.071862] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2233.488598] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2234.095702] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2234.095812] wlan0: rssi_threshold=0,rx_status->signal=-50
+<7>[ 2234.095850] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911808, t_offset_setpoint=3519911810, t_clockdrift=2
+<0>[ 2234.095866] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2234.095873] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2234.512615] wlan0: TSF : max clockdrift=2; too small to adjust
+<0>[ 2235.119708] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2235.119815] wlan0: rssi_threshold=0,rx_status->signal=-50
+<7>[ 2235.119853] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911806, t_offset_setpoint=3519911810, t_clockdrift=4
+<0>[ 2235.119869] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2235.119876] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2235.536591] wlan0: TSF : max clockdrift=4; too small to adjust
+
+
+
+
+<0>[ 2235.966000] ==MHX(ieee80211_xmit)2031. fc=8802, hdr->addr1=ff:ff:ff:ff:ff:ff. 	// This is ARP request. MP1 doesn't need path lookup for Bcast packets like ARP.
+<0>[ 2235.967941] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000	// MP2 sends ARP Reply that is Ucast and need path lookup. So MP2 sends PREQ to MP1.
+<7>[ 2235.968054] wlan0: received PREQ from 00:0f:92:fc:0d:f5
+<7>[ 2235.968059] wlan0: PREQ is for us
+<7>[ 2235.968064] wlan0: replying to the PREQ
+<7>[ 2235.968073] wlan0: sending PREP to 00:0f:92:fc:0d:f5
+<0>[ 2235.968084] ==MHX(ieee80211_xmit)2031. fc=d000, hdr->addr1=00:0f:92:fc:0d:f5. 
+<0>[ 2235.968218] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2235.968227] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<0>[ 2235.969840] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2235.969852] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2235.969856] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2235.969860] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2235.969865] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2235.969869] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2235.970156] ==MHX(ieee80211_xmit)2031. fc=d000, hdr->addr1=00:0f:92:fc:0d:f5. 
+<0>[ 2235.972077] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2235.972220] ==MHX(ieee80211_xmit)2031. fc=d000, hdr->addr1=00:0f:92:fc:0d:f5. 
+<0>[ 2235.972312] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2235.972320] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<0>[ 2235.972504] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2235.972608] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2235.972616] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<0>[ 2236.143705] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2236.143816] wlan0: rssi_threshold=0,rx_status->signal=-51
+<7>[ 2236.143854] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911804, t_offset_setpoint=3519911810, t_clockdrift=6
+<0>[ 2236.143870] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2236.143877] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2236.560582] wlan0: TSF : max clockdrift=6; too small to adjust
+<0>[ 2236.966647] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2236.966662] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2236.966667] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2236.966670] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2236.966675] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2236.966680] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2237.167723] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2237.167835] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2237.167872] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911802, t_offset_setpoint=3519911810, t_clockdrift=8
+<0>[ 2237.167888] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2237.167895] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2237.584587] wlan0: TSF : max clockdrift=8; too small to adjust
+<0>[ 2237.967207] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2237.967222] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2237.967226] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2237.967230] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2237.967235] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2237.967239] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2238.191714] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2238.191822] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2238.191860] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911800, t_offset_setpoint=3519911810, t_clockdrift=10
+<0>[ 2238.191876] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2238.191883] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2238.608587] wlan0: TSF : max clockdrift=10; too small to adjust
+<0>[ 2238.967759] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2238.967775] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2238.967779] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2238.967783] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2238.967787] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2238.967792] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2239.215713] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2239.215816] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2239.215853] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911798, t_offset_setpoint=3519911810, t_clockdrift=12
+<0>[ 2239.215869] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2239.215876] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2239.632585] wlan0: TSF : kicking off TSF adjustment with clockdrift_max=12
+<0>[ 2239.968315] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2239.968330] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2239.968334] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2239.968338] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2239.968343] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2239.968347] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2239.970347] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2239.970494] wlan0: received PREQ from 00:0f:92:fc:0d:f5
+<7>[ 2239.970499] wlan0: PREQ is for us
+<7>[ 2239.970504] wlan0: replying to the PREQ
+<7>[ 2239.970514] wlan0: sending PREP to 00:0f:92:fc:0d:f5
+<0>[ 2239.970528] ==MHX(ieee80211_xmit)2031. fc=d000, hdr->addr1=00:0f:92:fc:0d:f5. 
+<0>[ 2239.970628] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2239.970635] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2239.970642] wlan0: TSF : max clockdrift=12; adjusting
+<0>[ 2240.239702] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2240.239803] wlan0: rssi_threshold=0,rx_status->signal=-49
+<7>[ 2240.239840] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911817, t_offset_setpoint=3519911810, t_clockdrift=-7
+<0>[ 2240.239856] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2240.239863] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2240.656609] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2240.969021] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2240.969036] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2240.969040] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2240.969044] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2240.969049] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2240.969053] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2241.040155] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2241.040170] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2241.040174] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2241.040178] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2241.040183] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2241.040187] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2241.263735] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2241.263839] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2241.263876] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911816, t_offset_setpoint=3519911810, t_clockdrift=-6
+<0>[ 2241.263892] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2241.263899] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2241.680619] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2241.969576] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2241.969591] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2241.969595] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2241.969599] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2241.969604] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2241.969609] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2242.287725] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2242.287832] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2242.287869] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911813, t_offset_setpoint=3519911810, t_clockdrift=-3
+<0>[ 2242.287885] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2242.287892] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2242.704616] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2242.970133] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2242.970148] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2242.970152] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2242.970156] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2242.970162] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2242.970166] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2243.311726] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2243.311833] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2243.311870] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911811, t_offset_setpoint=3519911810, t_clockdrift=-1
+<0>[ 2243.311886] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2243.311894] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2243.728617] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2243.970689] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2243.970704] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2243.970708] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2243.970712] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2243.970717] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2243.970721] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2244.335753] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2244.335857] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2244.335894] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911808, t_offset_setpoint=3519911810, t_clockdrift=2
+<0>[ 2244.335917] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2244.335924] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=141760.
+<7>[ 2244.752618] wlan0: TSF : max clockdrift=2; too small to adjust
+<0>[ 2244.971244] ==MHX(ieee80211_xmit)2031. fc=8803, hdr->addr1=00:00:00:00:00:00. 
+<0>[ 2244.971259] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2244.971264] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2244.971267] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2244.971272] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2244.971277] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2244.971283] ==MHX(mesh_nexthop_lookup)1215. mpath->flags=15.
+<0>[ 2244.971295] ==MHX(mesh_queue_preq)1011. ifmsh->preq_queue_len=1,ifmsh->last_preq=608856712101044
+<0>[ 2244.971567] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2244.971577] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=1 ifmsh->last_preq=141760.
+<0>[ 2244.971582] ==MHX(mesh_path_start_discovery)1040.
+<0>[ 2244.971586] ==MHX(mesh_path_start_discovery)1049.
+<0>[ 2244.971592] ==MHX(mesh_path_start_discovery)1056.ifmsh->preq_queue_len=0
+<0>[ 2244.971597] ==MHX(mesh_path_start_discovery)1062.
+<0>[ 2244.971602] ==MHX(mesh_path_start_discovery)1070.ifmsh->flags=0
+<7>[ 2244.971620] wlan0: sending PREQ to 00:0f:92:fc:0d:f5
+<0>[ 2244.971640] ==MHX(ieee80211_xmit)2031. fc=d000, hdr->addr1=ff:ff:ff:ff:ff:ff. 
+<0>[ 2244.973214] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2244.973346] wlan0: received PREP from 00:0f:92:fc:0d:f5
+<0>[ 2244.973364] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2244.973371] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=194496.
+<0>[ 2244.973679] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2244.973783] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2244.973790] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=194496.
+<0>[ 2245.074745] ==MHX(mesh_path_timer)1236. 
+<0>[ 2245.074761] ==MHX(mesh_path_timer)1240. mpath->flags=17.
+<0>[ 2245.079836] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2245.079933] wlan0: received PREQ from 00:0f:92:fc:0d:f5
+<7>[ 2245.079938] wlan0: PREQ is for us
+<7>[ 2245.079942] wlan0: replying to the PREQ
+<7>[ 2245.079951] wlan0: sending PREP to 00:0f:92:fc:0d:f5
+<0>[ 2245.079964] ==MHX(ieee80211_xmit)2031. fc=d000, hdr->addr1=00:0f:92:fc:0d:f5. 
+<0>[ 2245.080058] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2245.080065] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=194496.
+<0>[ 2245.359777] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2245.359895] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2245.359931] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911807, t_offset_setpoint=3519911810, t_clockdrift=3
+<0>[ 2245.359947] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2245.359955] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=194496.
+<7>[ 2245.776617] wlan0: TSF : max clockdrift=3; too small to adjust
+<0>[ 2246.383826] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2246.383959] wlan0: rssi_threshold=0,rx_status->signal=-48
+<7>[ 2246.383996] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=3519911805, t_offset_setpoint=3519911810, t_clockdrift=5
+<0>[ 2246.384012] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2246.384020] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=194496.
+^C
+root@UserDevice:~# 
+
+So if MP1 does NOT send PREQ, that's not MP1's problem. That is because MP2 doesn't decode the ARP Req and reply to MP1.
+
+2. MP2 (pingee) log:
+
+<0>[74706.826215] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74706.826301] wlan0: rssi_threshold=0,rx_status->signal=-22
+<7>[74706.826335] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958517, t_offset_setpoint=-1829958564, t_clockdrift=-47
+<0>[74706.826352] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74706.826363] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<0>[74706.868830] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74706.868900] wlan0: rssi_threshold=0,rx_status->signal=-50
+<7>[74706.868930] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054872, t_offset_setpoint=775054854, t_clockdrift=-18
+<0>[74706.868948] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74706.868959] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<7>[74707.772795] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[74707.850206] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74707.850287] wlan0: rssi_threshold=0,rx_status->signal=-19
+<7>[74707.850315] wlan0: STA 00:0f:92:fc:15:e7 : is adjusting TBTT. BUT IGNORED!!!!
+<7>[74707.850330] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958507, t_offset_setpoint=-1829958564, t_clockdrift=-57
+<0>[74707.850348] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74707.850360] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<0>[74707.892838] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74707.892921] wlan0: rssi_threshold=0,rx_status->signal=-51
+<7>[74707.892954] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054875, t_offset_setpoint=775054854, t_clockdrift=-21
+<0>[74707.892972] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74707.892983] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<7>[74708.796797] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[74708.874253] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74708.874342] wlan0: rssi_threshold=0,rx_status->signal=-22
+<7>[74708.874376] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958519, t_offset_setpoint=-1829958564, t_clockdrift=-45
+<0>[74708.874393] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74708.874405] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<0>[74708.916826] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74708.916890] wlan0: rssi_threshold=0,rx_status->signal=-50
+<7>[74708.916919] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054878, t_offset_setpoint=775054854, t_clockdrift=-24
+<0>[74708.916937] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74708.916948] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<7>[74709.820796] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[74709.898218] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74709.898305] wlan0: rssi_threshold=0,rx_status->signal=-22
+<7>[74709.898333] wlan0: STA 00:0f:92:fc:15:e7 : is adjusting TBTT. BUT IGNORED!!!!
+<7>[74709.898348] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958508, t_offset_setpoint=-1829958564, t_clockdrift=-56
+<0>[74709.898365] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74709.898377] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<0>[74709.940845] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74709.940910] wlan0: rssi_threshold=0,rx_status->signal=-51
+<7>[74709.940940] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054859, t_offset_setpoint=775054854, t_clockdrift=-5
+<0>[74709.940957] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74709.940968] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<7>[74710.844808] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[74710.922231] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74710.922318] wlan0: rssi_threshold=0,rx_status->signal=-16
+<7>[74710.922352] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958519, t_offset_setpoint=-1829958564, t_clockdrift=-45
+<0>[74710.922369] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74710.922381] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<0>[74710.964842] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74710.964920] wlan0: rssi_threshold=0,rx_status->signal=-50
+<7>[74710.964950] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054861, t_offset_setpoint=775054854, t_clockdrift=-7
+<0>[74710.964967] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74710.964978] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7437227.
+<0>[74711.254698] ==MHX(mesh_nexthop_resolve)1142.			// Got ARP Req from MP1 and try to reply it.Need to relove mpath to MP1.
+<0>[74711.254718] ==MHX(mesh_nexthop_resolve)1147.
+<0>[74711.254726] ==MHX(mesh_nexthop_resolve)1152.
+<0>[74711.254735] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[74711.254750] ==MHX(mesh_nexthop_resolve)1166. mpath->flags=0.
+<0>[74711.254759] ==MHX(mesh_nexthop_resolve)1169. mpath->flags=0.
+<0>[74711.254773] ==MHX(mesh_queue_preq)1011. ifmsh->preq_queue_len=1,ifmsh->last_preq=31942648997002278
+<0>[74711.254978] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74711.254994] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=1 ifmsh->last_preq=7437227.
+<0>[74711.255004] ==MHX(mesh_path_start_discovery)1040.
+<0>[74711.255013] ==MHX(mesh_path_start_discovery)1049.
+<0>[74711.255023] ==MHX(mesh_path_start_discovery)1056.ifmsh->preq_queue_len=0
+<0>[74711.255033] ==MHX(mesh_path_start_discovery)1062.
+<0>[74711.255043] ==MHX(mesh_path_start_discovery)1070.ifmsh->flags=0
+<7>[74711.255064] wlan0: sending PREQ to 00:0f:92:fc:7b:0d
+<0>[74711.256324] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[74711.256718] wlan0: received PREP from 00:0f:92:fc:7b:0d
+<0>[74711.256747] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74711.256758] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74711.257254] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[74711.257323] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74711.257335] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74711.259330] ==MHX(mesh_nexthop_resolve)1142.
+<0>[74711.259348] ==MHX(mesh_nexthop_resolve)1147.
+<0>[74711.259356] ==MHX(mesh_nexthop_resolve)1152.
+<0>[74711.259365] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[74711.259374] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[74711.259555] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[74711.259757] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74711.259772] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74711.261422] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[74711.261501] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74711.261513] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74711.356097] ==MHX(mesh_path_timer)1236. 
+<0>[74711.356119] ==MHX(mesh_path_timer)1240. mpath->flags=17.
+<7>[74711.868797] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[74711.946217] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74711.946300] wlan0: rssi_threshold=0,rx_status->signal=-22
+<7>[74711.946328] wlan0: STA 00:0f:92:fc:15:e7 : is adjusting TBTT. BUT IGNORED!!!!
+<7>[74711.946344] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958508, t_offset_setpoint=-1829958564, t_clockdrift=-56
+<0>[74711.946361] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74711.946373] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74711.988825] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74711.988893] wlan0: rssi_threshold=0,rx_status->signal=-51
+<7>[74711.988923] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054863, t_offset_setpoint=775054854, t_clockdrift=-9
+<0>[74711.988940] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74711.988952] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74712.255601] ==MHX(mesh_nexthop_resolve)1142.
+<0>[74712.255622] ==MHX(mesh_nexthop_resolve)1147.
+<0>[74712.255630] ==MHX(mesh_nexthop_resolve)1152.
+<0>[74712.255639] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[74712.255648] ==MHX(mesh_nexthop_lookup)1208. 
+<7>[74712.892809] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[74712.970219] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74712.970295] wlan0: rssi_threshold=0,rx_status->signal=-20
+<7>[74712.970328] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958517, t_offset_setpoint=-1829958564, t_clockdrift=-47
+<0>[74712.970346] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74712.970357] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74713.012840] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74713.012909] wlan0: rssi_threshold=0,rx_status->signal=-49
+<7>[74713.012938] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054864, t_offset_setpoint=775054854, t_clockdrift=-10
+<0>[74713.012955] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74713.012966] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74713.255910] ==MHX(mesh_nexthop_resolve)1142.
+<0>[74713.255931] ==MHX(mesh_nexthop_resolve)1147.
+<0>[74713.255939] ==MHX(mesh_nexthop_resolve)1152.
+<0>[74713.255948] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[74713.255957] ==MHX(mesh_nexthop_lookup)1208. 
+<7>[74713.916820] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[74713.994227] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74713.994312] wlan0: rssi_threshold=0,rx_status->signal=-21
+<7>[74713.994341] wlan0: STA 00:0f:92:fc:15:e7 : is adjusting TBTT. BUT IGNORED!!!!
+<7>[74713.994356] wlan0: STA 00:0f:92:fc:15:e7 : t_offset=-1829958508, t_offset_setpoint=-1829958564, t_clockdrift=-56
+<0>[74713.994374] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74713.994385] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74714.042883] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[74714.042955] wlan0: rssi_threshold=0,rx_status->signal=-49
+<7>[74714.042985] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=775054867, t_offset_setpoint=775054854, t_clockdrift=-13
+<0>[74714.043007] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[74714.043018] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=7441125.
+<0>[74714.256483] ==MHX(mesh_nexthop_resolve)1142.
+<0>[74714.256503] ==MHX(mesh_nexthop_resolve)1147.
+<0>[74714.256511] ==MHX(mesh_nexthop_resolve)1152.
+<0>[74714.256520] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[74714.256529] ==MHX(mesh_nexthop_lookup)1208. 
+^C
+root@UserDevice:~# 
+
+
+
+
+
+
+Nov 28, 2022
+In G4,
+root@UserDevice:~# cat sys/module/mac80211/parameters/test_frame_interval 
+200
+
+If the test frame exists, looks like the G4 is easier to decode ARP Req from G3.5. Otherwise the G4 decodes ARP Req error.--------NOT ALWAYS!!!
+
+
+Nov 24, 2022
+A pair of BetaD MP1(FC:0D:F5) ping MP2(fc:7b:0d) from a fresh reboot.
+
+1. MP1 send ARP first, it does not send PREQ first. But the MP2 sends ARP reply, which is a unicast and need to send PREQ.
+
+MP1 log:
+<0>[ 2709.476366] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2709.476377] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<7>[ 2709.882820] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2710.219211] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2710.219306] wlan0: received PREQ from 00:0f:92:fc:7b:0d		// MP1 ping MP2, but MP1 receives PREQ first (ARP reply).
+<7>[ 2710.219316] wlan0: PREQ is for us
+<7>[ 2710.219325] wlan0: replying to the PREQ
+<7>[ 2710.219336] wlan0: sending PREP to 00:0f:92:fc:7b:0d
+<0>[ 2710.219454] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2710.219468] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2710.221007] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2710.221026] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2710.221034] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2710.221043] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2710.221052] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2710.223604] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2710.223739] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2710.223753] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2710.224134] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2710.224217] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2710.224229] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2710.354498] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2710.354588] wlan0: rssi_threshold=0,rx_status->signal=-56
+<7>[ 2710.354622] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=137775237, t_offset_setpoint=137775201, t_clockdrift=-36
+<0>[ 2710.354640] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2710.354651] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2710.500237] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2710.500324] wlan0: rssi_threshold=0,rx_status->signal=-20
+<0>[ 2710.500351] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2710.500363] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<7>[ 2710.906822] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2711.217339] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2711.217359] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2711.217368] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2711.217376] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2711.217385] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2711.378496] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2711.378582] wlan0: rssi_threshold=0,rx_status->signal=-55
+<7>[ 2711.378615] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=137775239, t_offset_setpoint=137775201, t_clockdrift=-38
+<0>[ 2711.378633] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2711.378644] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2711.524228] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2711.524311] wlan0: rssi_threshold=0,rx_status->signal=-14
+<0>[ 2711.524339] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2711.524350] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<7>[ 2711.930821] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2712.217754] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2712.217774] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2712.217782] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2712.217791] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2712.217800] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2712.402499] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2712.402580] wlan0: rssi_threshold=0,rx_status->signal=-57
+<7>[ 2712.402614] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=137775240, t_offset_setpoint=137775201, t_clockdrift=-39
+<0>[ 2712.402631] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2712.402643] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2712.548218] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2712.548297] wlan0: rssi_threshold=0,rx_status->signal=-21
+<0>[ 2712.548323] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2712.548335] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<7>[ 2712.954831] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2712.979914] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=b000
+<0>[ 2713.218164] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2713.218184] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2713.218192] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2713.218201] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2713.218210] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2713.426491] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2713.426582] wlan0: rssi_threshold=0,rx_status->signal=-58
+<7>[ 2713.426616] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=137775241, t_offset_setpoint=137775201, t_clockdrift=-40
+<0>[ 2713.426633] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2713.426645] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2713.572217] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2713.572300] wlan0: rssi_threshold=0,rx_status->signal=-18
+<0>[ 2713.572327] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2713.572338] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<7>[ 2713.978831] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2714.218613] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2714.218634] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2714.218642] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2714.218651] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2714.218660] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2714.450502] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2714.450590] wlan0: rssi_threshold=0,rx_status->signal=-58
+<7>[ 2714.450623] wlan0: STA 00:0f:92:fc:7b:0d : t_offset=137775243, t_offset_setpoint=137775201, t_clockdrift=-42
+<0>[ 2714.450641] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2714.450652] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<0>[ 2714.596198] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2714.596280] wlan0: rssi_threshold=0,rx_status->signal=-14
+<0>[ 2714.596307] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2714.596318] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238555.
+<7>[ 2715.002833] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2715.219023] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2715.219043] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2715.219052] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2715.219060] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2715.219069] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2715.219080] ==MHX(mesh_nexthop_lookup)1215. mpath->flags=15.
+<0>[ 2715.219095] ==MHX(mesh_queue_preq)1011. ifmsh->preq_queue_len=1,ifmsh->last_preq=1024588071517364
+<0>[ 2715.219290] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2715.219305] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=1 ifmsh->last_preq=238555.
+<0>[ 2715.219315] ==MHX(mesh_path_start_discovery)1040.
+<0>[ 2715.219324] ==MHX(mesh_path_start_discovery)1049.
+<0>[ 2715.219334] ==MHX(mesh_path_start_discovery)1056.ifmsh->preq_queue_len=0
+<0>[ 2715.219343] ==MHX(mesh_path_start_discovery)1062.
+<0>[ 2715.219353] ==MHX(mesh_path_start_discovery)1070.ifmsh->flags=0
+<7>[ 2715.219371] wlan0: sending PREQ to 00:0f:92:fc:7b:0d
+<0>[ 2715.221612] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2715.221668] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2715.221963] wlan0: received PREP from 00:0f:92:fc:7b:0d
+<0>[ 2715.221997] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2715.222009] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=241521.
+<0>[ 2715.296566] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2715.296587] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2715.296595] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2715.296604] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2715.296613] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2715.320383] ==MHX(mesh_path_timer)1236. 
+<0>[ 2715.320405] ==MHX(mesh_path_timer)1240. mpath->flags=17.
+<0>[ 2715.326237] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2715.326318] wlan0: received PREQ from 00:0f:92:fc:7b:0d
+<7>[ 2715.326328] wlan0: PREQ is for us
+<7>[ 2715.326336] wlan0: replying to the PREQ
+<7>[ 2715.326348] wlan0: sending PREP to 00:0f:92:fc:7b:0d
+
+MP2 log:
+<0>[ 2704.215075] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2704.215082] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238367.
+<7>[ 2704.672785] wlan0: TSF : kicking off TSF adjustment with clockdrift_max=12
+<0>[ 2704.825465] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2704.825571] wlan0: rssi_threshold=0,rx_status->signal=-49
+<0>[ 2704.825601] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2704.825608] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238367.
+<7>[ 2704.825615] wlan0: TSF : max clockdrift=12; adjusting
+<0>[ 2705.238934] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2705.239044] wlan0: rssi_threshold=0,rx_status->signal=-55
+<7>[ 2705.239081] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=-137775196, t_offset_setpoint=-137775201, t_clockdrift=-5	// Around here, QoS data fc=8842 (ARP) is received from MP1.
+<0>[ 2705.239097] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2705.239104] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=238367.
+<0>[ 2705.567529] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2705.567541] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2705.567545] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2705.567550] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2705.567563] ==MHX(mesh_nexthop_resolve)1166. mpath->flags=0.
+<0>[ 2705.567567] ==MHX(mesh_nexthop_resolve)1169. mpath->flags=0.
+<0>[ 2705.567578] ==MHX(mesh_queue_preq)1011. ifmsh->preq_queue_len=1,ifmsh->last_preq=1023780726380582	// mesh_queue_preq is called to increase preq_queue_len.
+<0>[ 2705.567861] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2705.567871] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=1 ifmsh->last_preq=238367.
+<0>[ 2705.567876] ==MHX(mesh_path_start_discovery)1040.
+<0>[ 2705.567881] ==MHX(mesh_path_start_discovery)1049.
+<0>[ 2705.567887] ==MHX(mesh_path_start_discovery)1056.ifmsh->preq_queue_len=0
+<0>[ 2705.567892] ==MHX(mesh_path_start_discovery)1062.
+<0>[ 2705.567898] ==MHX(mesh_path_start_discovery)1070.ifmsh->flags=0
+<7>[ 2705.567916] wlan0: sending PREQ to 00:0f:92:fc:0d:f5
+<0>[ 2705.569161] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2705.569381] wlan0: received PREP from 00:0f:92:fc:0d:f5
+<0>[ 2705.569402] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2705.569409] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2705.571619] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2705.571631] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2705.571634] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2705.571639] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2705.571643] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2705.571898] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2705.572163] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2705.572174] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2705.573950] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<0>[ 2705.574046] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2705.574053] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2705.674702] ==MHX(mesh_path_timer)1236. 
+<0>[ 2705.674712] ==MHX(mesh_path_timer)1240. mpath->flags=17.
+<7>[ 2705.696806] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2705.849509] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2705.849646] wlan0: rssi_threshold=0,rx_status->signal=-50
+<0>[ 2705.849675] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2705.849683] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2706.262936] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2706.263047] wlan0: rssi_threshold=0,rx_status->signal=-55
+<7>[ 2706.263084] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=-137775198, t_offset_setpoint=-137775201, t_clockdrift=-3
+<0>[ 2706.263100] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2706.263107] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2706.567697] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2706.567711] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2706.567715] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2706.567720] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2706.567725] ==MHX(mesh_nexthop_lookup)1208. 
+<7>[ 2706.720801] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2706.873425] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2706.873532] wlan0: rssi_threshold=0,rx_status->signal=-49
+<0>[ 2706.873563] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2706.873570] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2707.293266] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2707.293373] wlan0: rssi_threshold=0,rx_status->signal=-56
+<7>[ 2707.293410] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=-137775200, t_offset_setpoint=-137775201, t_clockdrift=-1
+<0>[ 2707.293427] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2707.293434] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2707.568376] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2707.568390] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2707.568394] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2707.568399] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2707.568403] ==MHX(mesh_nexthop_lookup)1208. 
+<7>[ 2707.744802] wlan0: TSF : max clockdrift=0; too small to adjust
+<0>[ 2707.897439] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2707.897543] wlan0: rssi_threshold=0,rx_status->signal=-49
+<0>[ 2707.897573] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2707.897580] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2708.310931] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2708.311039] wlan0: rssi_threshold=0,rx_status->signal=-58
+<7>[ 2708.311075] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=-137775202, t_offset_setpoint=-137775201, t_clockdrift=1
+<0>[ 2708.311091] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2708.311098] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2708.568922] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2708.568936] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2708.568940] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2708.568945] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2708.568950] ==MHX(mesh_nexthop_lookup)1208. 
+<7>[ 2708.768802] wlan0: TSF : max clockdrift=1; too small to adjust
+<0>[ 2708.921433] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2708.921539] wlan0: rssi_threshold=0,rx_status->signal=-49
+<0>[ 2708.921570] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2708.921577] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2709.341205] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2709.341313] wlan0: rssi_threshold=0,rx_status->signal=-57
+<7>[ 2709.341350] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=-137775204, t_offset_setpoint=-137775201, t_clockdrift=3
+<0>[ 2709.341365] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2709.341372] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2709.568886] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2709.568900] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2709.568904] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2709.568908] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2709.568913] ==MHX(mesh_nexthop_lookup)1208. 
+<7>[ 2709.792798] wlan0: TSF : max clockdrift=3; too small to adjust
+<0>[ 2709.945400] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2709.945498] wlan0: rssi_threshold=0,rx_status->signal=-49
+<0>[ 2709.945528] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2709.945536] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2710.358904] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=8000
+<7>[ 2710.359003] wlan0: rssi_threshold=0,rx_status->signal=-55
+<7>[ 2710.359040] wlan0: STA 00:0f:92:fc:0d:f5 : t_offset=-137775206, t_offset_setpoint=-137775201, t_clockdrift=5
+<0>[ 2710.359054] ==MHX(ieee80211_mesh_work)1496. sdata->u.mesh.mesh_id_len=14.
+<0>[ 2710.359061] ==MHX(ieee80211_mesh_work)1501. ifmsh->preq_queue_len=0 ifmsh->last_preq=240556.
+<0>[ 2710.569319] ==MHX(mesh_nexthop_resolve)1142.
+<0>[ 2710.569333] ==MHX(mesh_nexthop_resolve)1147.
+<0>[ 2710.569336] ==MHX(mesh_nexthop_resolve)1152.
+<0>[ 2710.569341] ==MHX(mesh_nexthop_lookup)1203. 
+<0>[ 2710.569346] ==MHX(mesh_nexthop_lookup)1208. 
+<0>[ 2710.569352] ==MHX(mesh_nexthop_lookup)1215. mpath->flags=5.
+<0>[ 2710.569364] ==MHX(mesh_queue_preq)1011. ifmsh->preq_queue_len=1,ifmsh->last_preq=1033182301076660
+<0>[ 2710.569624] ==MHX(ieee80211_drop_unencrypted_mgmt)2443.fc=d000
+<7>[ 2710.569786] wlan0: received PREQ from 00:0f:92:fc:0d:f5
+<7>[ 2710.569792] wlan0: PREQ is for us
+<7>[ 2710.569797] wlan0: replying to the PREQ
+<7>[ 2710.569807] wlan0: sending PREP to 00:0f:92:fc:0d:f5
+
+
+If MP2 is a G4 MP3, it doesn't ping through. Maybe MP3 drops the ARP Req from MP1. ieee80211_rx_h_check() funcion is very different.
+
+Nov 23, 2022
+In BetaD, new introduced :
+
+/**
+ * _ieee80211_is_group_privacy_action - check if frame is a group addressed
+ * privacy action frame
+ * @hdr: the frame
+ */
+static inline bool _ieee80211_is_group_privacy_action(struct ieee80211_hdr *hdr)
+{
+	struct ieee80211_mgmt *mgmt = (void *)hdr;
+
+	if (!ieee80211_is_action(hdr->frame_control) ||
+	    !is_multicast_ether_addr(hdr->addr1))
+		return false;
+
+	return mgmt->u.action.category == WLAN_CATEGORY_MESH_ACTION ||
+	       mgmt->u.action.category == WLAN_CATEGORY_MULTIHOP_ACTION;
+}
+
+Force this return false, then BetaD send PREQ without encryption then. Of course still depends on peer's MFP flag WLAN_STA_MFP.
+
+In G4 mesh beacon has the 
+
+	*pos++ |= ifmsh->adjusting_tbtt ?
+			IEEE80211_MESHCONF_CAPAB_TBTT_ADJUSTING : 0x00;
+
+IE in beacon ( 1 or 0). But in BetaD this IE is removed so it is always 0. This difference cause the BetaD always complain "wlan0: STA 00:0f:92:fc:15:e7 : is adjusting TBTT." [00:0f:92:fc:15:e7 is the peer G4 unit]. But this tweak in BetaD doesn't work:
+
+	if (elems->mesh_config && mesh_peer_tbtt_adjusting(elems)) {
+		msync_dbg(sdata, "STA %pM : is adjusting TBTT. BUT IGNORED!!!!\n",
+			  sta->sta.addr);
+	/////////////////MHXJL	goto no_sync;
+	}
+Still the ping should be initiated from G4 side otherwise if from BetaD initializes the ping the BetaD doesn't actually send out PREQ.
+
+
+Nov 22, 2022
+@NL80211_STA_FLAG_MFP: station uses management frame protection
+If peer have this flag set, then need to use MFP.
+
+In BetaD G3.5, function sta_apply_parameters():
+	if (ieee80211_vif_is_mesh(&sdata->vif)){
+		printk("===MHX(%s)%d. STA MFP=%d. force to non-MFP!!!!\n", __func__, __LINE__, sta->sta.mfp);
+		sta->sta.mfp = 0;
+		clear_sta_flag(sta, WLAN_STA_MFP);
+	}
+
+Then all peers show up as non-MFP stations:
+
+root@UserDevice:~# iw wlan0 station dump
+Station 00:0f:92:fc:0d:f5 (on wlan0)
+        inactive time:  440 ms
+        rx bytes:       179112
+        rx packets:     2997
+        tx bytes:       2172
+        tx packets:     28
+        tx retries:     1
+        tx failed:      1
+        rx drop misc:   151
+        signal:         -34 [-34] dBm
+        signal avg:     -33 [-33] dBm
+        noise floor:    -101 dBm
+        rssi overall:   67 dB
+        rssi ctl:       67 [67] dB
+        rssi ctl avg:   67 [67] dB
+        noise ctl:      -101 [-101] dBm
+        Toffset:        7225860094 us
+        tx bitrate:     26.0 MBit/s MCS 3
+        tx duration:    8876 us
+        rx bitrate:     6.5 MBit/s MCS 0
+        rx duration:    93324 us
+        airtime weight: 256
+        mesh llid:      0
+        mesh plid:      0
+        mesh plink:     ESTAB
+        mesh airtime link metric: 407
+        mesh connected to gate: no
+        mesh local PS mode:     ACTIVE
+        mesh peer PS mode:      UNKNOWN
+        mesh non-peer PS mode:  ACTIVE
+        authorized:     yes
+        authenticated:  yes
+        associated:     yes
+        preamble:       long
+        WMM/WME:        yes
+        MFP:            no			// peer sta MFP flag is forcely cleared
+        TDLS peer:      no
+        DTIM period:    2
+        beacon interval:1000
+        connected time: 595 seconds
+        associated at [boottime]:       110.379s
+        associated at:  18446725624845001297 ms
+        current time:   18446744071588964590 ms
+Station 00:0f:92:fc:15:e7 (on wlan0)
+        inactive time:  80 ms
+        rx bytes:       238891
+        rx packets:     2575
+        tx bytes:       133532
+        tx packets:     1094
+        tx retries:     126
+        tx failed:      25
+        rx drop misc:   105
+        signal:         -43 [-43] dBm
+        signal avg:     -44 [-44] dBm
+        noise floor:    -101 dBm
+        rssi overall:   58 dB
+        rssi ctl:       58 [58] dB
+        rssi ctl avg:   56 [56] dB
+        noise ctl:      -101 [-101] dBm
+        Toffset:        18446744073629838368 us
+        tx bitrate:     39.0 MBit/s MCS 4
+        tx duration:    146042 us
+        rx bitrate:     6.5 MBit/s MCS 0
+        rx duration:    225416 us
+        airtime weight: 256
+        expected throughput:    22.338Mbps
+        mesh llid:      0
+        mesh plid:      0
+        mesh plink:     ESTAB
+        mesh airtime link metric: 358
+        mesh connected to gate: no
+        mesh local PS mode:     ACTIVE
+        mesh peer PS mode:      ACTIVE
+        mesh non-peer PS mode:  ACTIVE
+        authorized:     yes
+        authenticated:  yes
+        associated:     yes
+        preamble:       long
+        WMM/WME:        yes
+        MFP:            no				// peer sta MFP flag is forcely cleared
+        TDLS peer:      no
+        DTIM period:    2
+        beacon interval:1000
+        connected time: 575 seconds
+        associated at [boottime]:       129.990s
+        associated at:  18446725624845020909 ms
+        current time:   18446744071588964593 ms
+
+Check by Wireshark, this BetaD still sends encrypted PREQ (mcast). But it replys PREP non-encrypted. 
+
+Nove 17, 2022
+In G4, we added this :
+                /*
+                * MHXJL May 2019 : when authsae uses MFP, the PREP is lost. force 
+                * return OK here.
+                */
+                if( *category == WLAN_CATEGORY_MESH_ACTION )
+                        return false;
+The result is that the G4 sends PREQ and PREP in un-encrypted mode. The result is that G3.5 doesn't recognize both.
+
+If I commented out this change, G4 sends PREP in encrypted mode. But still sends PREQ in un-encrypted mode, which the G3.5 doesn't recognize and link is not stable.
+
+For BetaD G3.5 to accept the un-encrypted PREQ/PREP, need to do this in G3.5 mac80211 driver:
+
+static int ieee80211_drop_unencrypted_mgmt(struct ieee80211_rx_data *rx)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)rx->skb->data;
+	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(rx->skb);
+	__le16 fc = hdr->frame_control;
+
+
+	printk("==MHX(%s)%d.fc=%04x\n", __func__, __LINE__, fc);
+	return 0;	// This accepts un-encrypted PREQ/PREP from G4. So MFP is just by-passed. Have to do this because G4 sends unencrypted PREQ/PREP.
+
+	/*
+	 * Pass through unencrypted frames if the hardware has
+	 * decrypted them already.
+	 */
+	if (status->flag & RX_FLAG_DECRYPTED)
+		return 0;
+
+
+
+
+Nov 10, 2022
+Very random secure mesh on G4. Need to upgrade f/w to make it work. When successful:
+root@pm2450-41:~# iw wlan0 mpath dump
+DEST ADDR         NEXT HOP          IFACE       SN      METRIC  QLEN    EXPTIME DTIM    DRET    FLAGS
+00:0f:92:fc:0d:f5 00:0f:92:fc:0d:f5 wlan0       77      2065    0       0       0       0       0x15
+root@pm2450-41:~# arp -n
+IP address       HW type     Flags       HW address            Mask     Device
+192.168.168.37   0x1         0x2         00:0f:92:0a:2e:4a     *        br-lan	// br-lan MAC
+root@pm2450-41:~# ping 192.168.168.37			// the peer is G3.5 MP
+PING 192.168.168.37 (192.168.168.37): 56 data bytes
+14:01:37. 74047 -- sending icmp request
+64 bytes from 192.168.168.37: seq=0 ttl=64 time=4.221 ms
+14:01:38. 74987 -- sending icmp request
+64 bytes from 192.168.168.37: seq=1 ttl=64 time=3.245 ms
+
+--- 192.168.168.37 ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max = 3.245/3.733/4.221 ms
+root@pm2450-41:~# cat sys/module/mac80211/parameters/test_frame_interval 
+200
+
+
+
+Nov 9, 2022
+In G4pMDDL2450 MP, need
+root@pm2450-41:~# cat sys/module/mac80211/parameters/test_frame_interval
+200
+root@pm2450-41:~# echo -1 > sys/module/mac80211/parameters/test_frame_interval
+
+So the kernel debug message can be shown. The default 200 prevents the mac80211 debug message show up. WHY?????
+
+This is random not root cause.
+
+In G4 pMDDL2450 _ieee80211_is_robust_mgmt_frame(), remove MHX code like below:
+
+                /*
+                * MHXJL May 2019 : when authsae uses MFP, the PREP is lost. force 
+                * return OK here.
+                */
+                //if( *category == WLAN_CATEGORY_MESH_ACTION )
+                //      return false;
+
+Then the G4 can receive Mesh PREQ message and can reply PREP now. And ping between G4 and G3.5 MPs successful.
+
+The change on the G4 side (current conditions, maybe not necessary):
+1. mac80211, mesh.c, mesh_matches_local() function return true directly.
+2. mac80211, include/linux/ieee80211.h, _ieee80211_is_robust_mgmt_frame() function, remove the 2 lines added by MHXJL:
+                //if( *category == WLAN_CATEGORY_MESH_ACTION )
+                //      return false;
+
+The change on the G3.5 side (current conditions, maybe not necessary):
+1. mac80211, mesh.c , mesh_matches_local() function, remove mesh config match check:
+/*
+        if (!(ifmsh->mesh_id_len == ie->mesh_id_len &&
+             memcmp(ifmsh->mesh_id, ie->mesh_id, ie->mesh_id_len) == 0 &&
+             (ifmsh->mesh_pp_id == ie->mesh_config->meshconf_psel) &&
+             (ifmsh->mesh_pm_id == ie->mesh_config->meshconf_pmetric) &&
+             (ifmsh->mesh_cc_id == ie->mesh_config->meshconf_congest) &&
+             (ifmsh->mesh_sp_id == ie->mesh_config->meshconf_synch) &&
+             (ifmsh->mesh_auth_id == ie->mesh_config->meshconf_auth)))
+                return false;
+*/
+
+2. wpa_supplicant config file:
+mesh_basic_rates=60 120 240		// add support basic rate 12M and 24M to comply with G4 pMDDL2450
+
+3. wpad, wpa_supplicant/mesh_mpm.c, matches_local() function, directly return true.
+
+Nov3, 2022
+BetaD pMDDL2450 Mesh@AES128 with a G4 pMDDL2450 secure mesh desn't connect: mac80211 driver mesh_matches_local(sdata, &elems) failed in BetaD. Bypass this check and wpad matches_local() function still fails. Further bypass this matches_local() and the peer side G4 pMDDL2450 complained : 
+
+mesh plink: mismatched BSSBasicRateSet!
+NL80211_CMD_FRAME (3680.255094)
+
+So need to address the match issue first. WhireShark shows G4 pMDDL2450 beacon supports basic rates = 6(B), 12(B), and 24(B) while the BetaD beacon only shows 6(B). So add 12 and 14 as basic rates to the BetaD config file:
+
+append network_data "mesh_basic_rates=60 120 240" "$N$T"
+
+Then they can associate.[NOTE : matches_local() has more checks than the mesh_basic_rate. ]
+
+Oct 26, 2022
+Check latet build channel definitions:
+
+G3.5 BetaD: "v1.3.5" build "1022"
+pMDDL2350 : 
+	BW=1M : [2311..2389],
+	BW=2M : [2311..2389],
+	BW=4M : [2312..2388],
+	BW=8M : [2314..2386].
+
+pMDDL2450 : 
+	BW=1M : [2402..2482],
+	BW=2M : [2402..2482],
+	BW=4M : [2405..2479],
+	BW=8M : [2407..2477].
+
+pMDDL2550 : 
+	BW=1M : [2501..2569],
+	BW=2M : [2501..2569],
+	BW=4M : [2502..2568],
+	BW=8M : [2504..2566].
+
+
+G4 pMDDL : "v1.4.0" build "1030"
+pMDDL2350 : 
+	BW=4M : [2310..2390],
+	BW=8M : [2310..2390].
+
+pMDDL2450 : 
+	BW=4M : [2405..2479],
+	BW=8M : [2407..2477].
+
+pMDDL2550 : 
+	BW=4M : [2500..2570],
+	BW=8M : [2500..2570].
+
+
+G3 pDDL: "v1.3.0" build "1040"
+pMDDL : 
+	BW=1M : [2402..2482],
+	BW=2M : [2402..2482],
+	BW=4M : [2405..2479],
+	BW=8M : [2407..2477].
+
+
+Oct 26, 2022
+get_lo_freq() function name conflict among, lmx2572.ko, rffc5071.ko and stw81200.ko. ath9k_hw.mod.c always has a depency on stw81200:
+
+static const char __module_depends[]
+__used
+__attribute__((section(".modinfo"))) =
+"depends=compat,ath,cfg80211,mac80211,stw81200";
+
+Check build_dir/target-mips_24kc_musl/linux-ar71xx_microhard/linux-4.14.187/Makefile
+# Build modules
+#
+# A module can be listed more than once in obj-m resulting in
+# duplicate lines in modules.order files.  Those are removed
+# using awk while concatenating to the final file.
+
+PHONY += modules
+modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
+        @$(kecho) '  Building modules, stage 2.';
+        $(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
+
+Theck check ./build_dir/target-mips_24kc_musl/linux-ar71xx_microhard/linux-4.14.187/scripts/Makefile.modpost:
+xxx.mod.c is created by scripts/mod/modpost.c.
+
+
+
+Oct 21, 2022
+Openwrt package:
+ For most packages and features, you have three options: y, m, n which are represented as follows:
+
+    pressing y sets the <*> built-in label
+    This package will be compiled and included in the firmware image file.
+    pressing m sets the <M> package label
+    This package will be compiled, but not included in the firmware image file, e.g. to be installed with opkg after flashing the firmware image file to the device.
+    pressing n sets the < > excluded label
+    The source code will not be processed.
+
+
 Oct 19, 2022
 About lmx2572 SPI speed:
 1. Test 1:
